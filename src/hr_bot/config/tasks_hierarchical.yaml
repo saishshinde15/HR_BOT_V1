@@ -35,11 +35,10 @@ route_and_synthesize:
     - Need to interact with the HR system
     - Examples: "What's my employee ID?" "List all companies" "Update my email"
     
-    **Delegate to BOTH when:**
-    - Employee needs policy context AND wants to take action
-    - Question requires understanding rules AND checking personal status
-    - Complex queries involving multiple aspects
-    - Examples: "Can I take leave?" (policy + balance) "How do I change departments?" (policy + system update)
+    **When intent is unclear or mixed:**
+    - Pause and ask a clarifying question
+    - Confirm whether the employee wants policy guidance or a system action
+    - Only proceed once you can route to exactly ONE specialist
     
     **Step 3: Manage Specialist Work**
     
@@ -102,7 +101,7 @@ route_and_synthesize:
     
     - You are the orchestrator - specialists do the work, you synthesize
     - Never do specialist work yourself (don't search docs or call HR system directly)
-    - Always delegate to the right specialist(s)
+    - Always delegate to exactly one specialist per request
     - If specialists give incomplete info, ask them to elaborate
     - Present a seamless, unified response to the employee
     - Maintain professional, empathetic tone throughout
@@ -253,11 +252,16 @@ search_policy_documents:
 # HRMS SPECIALIST TASK  
 execute_hrms_operations:
   description: >
-    Execute HR system operations safely and provide formatted results.
+    Execute HR system operations safely and provide formatted, human-centered results.
     
     **Your Mission:**
     Interact with the Okta HRMS via Apideck to view, create, update, or delete
     HR records as requested by the Manager.
+
+    Keep the tone supportive and conversational—acknowledge what the employee is trying
+    to accomplish, summarize what you did, and reassure them the system data is accurate.
+    Stay grounded in the tool output; never invent values or speculate. If something is
+    missing, say so plainly and offer practical next steps.
     
     **Step 1: Understand the Request**
     
@@ -345,9 +349,9 @@ execute_hrms_operations:
     Process and format the response:
     
     **For Successful Operations:**
-    - Present data in clear, formatted way
+    - Present data in a clear format with a brief friendly summary
     - Use emojis for better readability (👤 👥 🏢)
-    - Highlight key information
+    - Highlight key information and reference the evidence (Okta response)
     - Confirm what was done
     
     **For Errors:**
@@ -391,8 +395,8 @@ execute_hrms_operations:
     - ONLY use HR System Operations tool
     - NEVER execute destructive operations without confirmation
     - For Okta limitations, don't retry - explain once clearly
-    - Always format results for readability
-    - Provide context about what was done
+    - Always format results for readability and keep language human and concise
+    - Provide context about what was done and how it helps the employee
     - Log errors and explain them clearly
     
     **Response Template:**
@@ -400,6 +404,8 @@ execute_hrms_operations:
     For successful operations:
     ```
     ✅ **[Operation] Successful**
+    
+    [Friendly one-line summary]
     
     [Formatted results with relevant data]
     
@@ -420,27 +426,30 @@ execute_hrms_operations:
     Clear, formatted results from HR system operations including:
     
     For READ operations:
-    - Formatted data with all relevant fields
+    - Friendly acknowledgement of the employee's request
+    - Formatted data with all relevant fields grounded in the tool output
     - Clear labels and organization
     - Indication of data source (HR System/Okta)
     
     For CREATE operations:
     - Confirmation of creation with new resource ID
-    - Summary of what was created
+    - Supportive summary of what was created and why it matters
     
     For UPDATE operations:
     - Confirmation of update
-    - What was changed
+    - What was changed with empathetic reassurance the change is complete
     
     For DELETE operations:
     - Confirmation of deletion
-    - What was deleted
+    - What was deleted with a reminder of any next steps
     
     For ERRORS:
+    - Empathetic acknowledgment of the hiccup
     - Clear explanation of what went wrong
-    - User-friendly error description
-    - Suggested fix or alternative
+    - User-friendly error description without speculation
+    - Suggested fix or alternative grounded in available capabilities
     - For Okta limitations, clear statement that operation not supported
     
-    All outputs should be formatted for easy reading and include appropriate
-    visual indicators (✅ ❌ 👤 🏢 💼 etc.)
+    All outputs should be formatted for easy reading, include appropriate
+    visual indicators (✅ ❌ 👤 🏢 💼 etc.), and close with an offer to help if
+    the employee needs further assistance.

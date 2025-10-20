@@ -25,26 +25,26 @@ from hr_bot.tools.apideck_hr_tool import APIDeckhHRTool
 @CrewBase
 class HrBotHierarchical():
     """
-    Production-grade Hierarchical HR Bot with specialized agents:
-    
-    1. HR Manager (Orchestrator):
-       - Analyzes queries
-       - Delegates to specialists
-       - Synthesizes responses
-       - Ensures quality
-    
+    Production-grade Hierarchical HR Bot with specialized agents and a dedicated manager agent:
+
+    1. HR Manager Agent (Gemini Pro powered):
+        - Analyzes queries
+        - Delegates to specialists
+        - Synthesizes responses
+        - Ensures quality
+
     2. Policy Specialist (RAG Expert):
-       - Searches company documents
-       - Extracts policy information
-       - Provides comprehensive policy details
-    
+        - Searches company documents
+        - Extracts policy information
+        - Provides comprehensive policy details
+
     3. HRMS Specialist (System Expert):
-       - Executes HR system operations
-       - Manages employee/company data
-       - Handles CRUD operations safely
-    
+        - Executes HR system operations
+        - Manages employee/company data
+        - Handles CRUD operations safely
+
     Process: Hierarchical
-    - Manager delegates tasks to specialists
+    - CrewAI manager agent delegates dynamically
     - Specialists work independently
     - Manager synthesizes final response
     """
@@ -60,10 +60,10 @@ class HrBotHierarchical():
         if gemini_api_key:
             os.environ["GEMINI_API_KEY"] = gemini_api_key
         
-        # LLM for manager (higher temperature for better delegation)
+        # LLM for manager agent (Gemini Pro for orchestration)
         self.manager_llm = LLM(
-            model=os.getenv("GEMINI_MODEL", "gemini/gemini-2.0-flash-lite-001"),
-            temperature=0.4,  # Slightly higher for better reasoning
+            model=os.getenv("GEMINI_MANAGER_MODEL", "gemini/gemini-2.0-flash-lite-001"),
+            temperature=0.4,
         )
         
         # LLM for specialists (lower temperature for accuracy)
@@ -80,18 +80,18 @@ class HrBotHierarchical():
     def hr_manager(self) -> Agent:
         """
         Senior HR Manager - Routes queries and synthesizes responses
-        No tools - delegates all work to specialists
+        Delegates all execution to specialists
         """
         return Agent(
             config=self.agents_config['hr_manager'],
-            tools=[],  # Manager doesn't use tools directly - only delegates
+            tools=[],  # Manager delegates instead of using tools
             llm=self.manager_llm,
             verbose=True,
-            max_iter=10,  # More iterations for complex delegation
+            max_iter=10,
             memory=True,
-            allow_delegation=True,  # CRITICAL: Enables delegation to other agents
+            allow_delegation=True,
         )
-    
+
     @agent
     def policy_specialist(self) -> Agent:
         """
@@ -125,114 +125,36 @@ class HrBotHierarchical():
         )
     
     @task
-    def analyze_and_respond_task(self) -> Task:
+    def route_and_synthesize_task(self) -> Task:
         """
-        Main manager task - analyzes query and coordinates specialists
-        Manager will use delegation to work with specialists
+        Manager task - analyzes query and delegates to exactly one specialist
         """
         return Task(
-            description="""
-            Employee Query: {query}
-            
-            Analyze this employee's query carefully and understand what they truly need.
-            
-            **Step 1: Understand Query Intent**
-            
-            Ask yourself: What does the employee really want?
-            
-            A) INFORMATION REQUEST (Policy/Procedure Question)
-               - "What is the sick leave policy?"
-               - "How much parental leave do I get?"
-               - "What are the benefits for..."
-               - "Am I eligible for..."
-               - "How do I apply for..."
-               → Employee wants to KNOW/UNDERSTAND something
-               → Delegate ONLY to "HR Policy Expert and Document Specialist"
-            
-            B) ACTION REQUEST (System Operation)
-               - "Update my email"
-               - "Apply for leave"
-               - "Change my department"
-               - "Create/delete/modify..."
-               → Employee wants to DO/CHANGE something in the system
-               → Delegate ONLY to "HRMS Operations Expert and System Administrator"
-            
-            C) EXPLORATORY QUESTION (Information First, Action Maybe Later)
-               - "Can I take leave next week?"
-               - "I'm having a baby, what do I do?"
-               → Employee is EXPLORING options, not ready to take action yet
-               → Delegate ONLY to "HR Policy Expert and Document Specialist"
-               → Let them get the information they need FIRST
-               → If they come back asking to actually apply/take action, THEN involve HRMS
-            
-            **Step 2: Delegate to ONE Specialist**
-            
-            CRITICAL: Do NOT delegate to both specialists unless the employee explicitly asks for BOTH information AND action in the same request.
-            
-            **For Policy Questions:**
-            Ask coworker="HR Policy Expert and Document Specialist" with the full context of what the employee wants to know.
-            
-            **For System Operations:**
-            Ask coworker="HRMS Operations Expert and System Administrator" with specific details about what operation to perform.
-            
-            **Step 3: Present Response**
-            
-            When you receive the specialist's answer:
-            - Present it warmly and clearly to the employee
-            - Add any helpful context if needed
-            - If the employee's situation requires follow-up action, suggest it naturally
-            - Maintain the caring, human tone from the specialist
-            
-            **Examples:**
-            
-            Query: "What is sick leave policy?"
-            → ONLY delegate to HR Policy Expert
-            → Present their detailed, caring response
-            
-            Query: "Update my email to john@example.com"
-            → ONLY delegate to HRMS Specialist
-            → Confirm the update was successful
-            
-            Query: "Can I take parental leave?"
-            → ONLY delegate to HR Policy Expert (they're exploring options)
-            → Present policy details
-            → Suggest: "Once you're ready to apply, I can help you submit the request!"
-            
-            Query: "I want to apply for parental leave AND update my contact info"
-            → NOW delegate to BOTH (explicit request for both)
-            → Get policy from HR Policy Expert
-            → Execute update with HRMS Specialist
-            """,
-            expected_output="""
-            A warm, comprehensive response that:
-            - Directly answers the employee's question
-            - Maintains a caring, human tone
-            - Provides complete information with sources (for policy questions)
-            - Confirms actions taken (for system operations)
-            - Suggests helpful next steps when appropriate
-            - Makes the employee feel supported and informed
-            """,
-            # NO agent assignment - this task goes to manager by default in hierarchical mode
+            config=self.tasks_config['route_and_synthesize'],
         )
-    
+
     @task
     def search_policy_task(self) -> Task:
         """
-        Policy search task - for policy specialist
-        Not directly invoked - manager delegates here
+        Policy search task - Assigned to policy specialist
+        Manager will delegate here for policy/document queries
+        Contains ALL the detailed instructions for the policy specialist
         """
         return Task(
             config=self.tasks_config['search_policy_documents'],
+            agent=self.policy_specialist(),  # ASSIGNED to policy specialist
         )
     
     @task
     def hrms_operations_task(self) -> Task:
         """
-        HRMS operations task - for HRMS specialist  
-        Not directly invoked - manager delegates here
+        HRMS operations task - Assigned to HRMS specialist
+        Manager will delegate here for system operations
+        Contains ALL the detailed instructions for the HRMS specialist
         """
         return Task(
             config=self.tasks_config['execute_hrms_operations'],
+            agent=self.hrms_specialist(),  # ASSIGNED to HRMS specialist
         )
     
     @crew
@@ -241,22 +163,25 @@ class HrBotHierarchical():
         Creates the hierarchical HR Bot crew
         
         HIERARCHICAL DELEGATION ARCHITECTURE:
-        
-        How it works:
-        1. User asks: "What is sick leave policy?" (STATIC - from documents)
-           → Manager receives query in analyze_and_respond_task
-           → Manager delegates to "HR Policy Expert and Document Specialist"
-           → Policy specialist uses RAG tool to search documents
-           → Manager synthesizes response
-        
-        2. User asks: "Update my department" (DYNAMIC - system changes)
-           → Manager receives query in analyze_and_respond_task
-           → Manager delegates to "HRMS Operations Expert and System Administrator"
-           → HRMS specialist uses Apideck tool to modify system
-           → Manager confirms operation
-        
-        IMPORTANT: Only ONE task in hierarchical mode - the manager's task.
-        Manager uses delegation (coworker=) to work with specialists.
+
+          How it works:
+          1. User asks: "What is sick leave policy?" (STATIC - from documents)
+              → Manager agent analyzes query
+              → Manager delegates to policy specialist via search_policy_task
+              → Policy specialist executes search_policy_task using RAG tool
+              → Manager synthesizes response for the employee
+
+          2. User asks: "Update my department" (DYNAMIC - system changes)
+              → Manager agent analyzes query
+              → Manager delegates to HRMS specialist via hrms_operations_task
+              → HRMS specialist executes hrms_operations_task using Apideck tool
+              → Manager confirms action with the employee
+
+          IMPORTANT HIERARCHICAL ARCHITECTURE:
+          - Manager orchestration handled by CrewAI manager agent with Gemini Pro
+          - search_policy_task: Policy specialist's detailed task (assigned to policy_agent)
+          - hrms_operations_task: HRMS specialist's detailed task (assigned to hrms_agent)
+          - Manager analyzes inputs, delegates, and synthesizes while specialists execute
         """
         
         # Create agent instances
@@ -264,8 +189,8 @@ class HrBotHierarchical():
         policy_agent = self.policy_specialist()
         hrms_agent = self.hrms_specialist()
 
-        # Create ONLY the manager's task
-        manager_task = self.analyze_and_respond_task()
+        # Manager orchestrates and delegates based on intent
+        manager_task = self.route_and_synthesize_task()
 
         # Create crew with hierarchical process
         crew_instance = Crew(
@@ -274,10 +199,10 @@ class HrBotHierarchical():
                 hrms_agent,    # Has Apideck tool - for dynamic system operations
             ],
             tasks=[
-                manager_task,  # Manager's task - will delegate to specialists as needed
+                manager_task,  # Manager decides which specialist to engage
             ],
             process=Process.hierarchical,
-            manager_agent=manager_agent,  # Analyzes query and delegates to right specialist
+            manager_agent=manager_agent,
             verbose=True,
             memory=False,
             cache=True,
@@ -299,8 +224,14 @@ class HrBotHierarchical():
                 
                 # Try to add sources from RAG tool if not already present
                 try:
-                    output_text = str(output)
-                    
+                    # Determine the base text we will augment with sources
+                    if hasattr(output, "final_output") and output.final_output:
+                        output_text = str(output.final_output)
+                    elif hasattr(output, "raw") and output.raw:
+                        output_text = str(output.raw)
+                    else:
+                        output_text = str(output)
+
                     # Only add sources if RAG tool was used and sources not already in output
                     if "Sources:" not in output_text and "Source:" not in output_text:
                         sources = hybrid_tool.last_sources()

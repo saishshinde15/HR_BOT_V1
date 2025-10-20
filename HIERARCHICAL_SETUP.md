@@ -305,6 +305,6 @@ For issues or questions:
 
 ---
 
-**Version**: 1.0.0  
+**Version**: 1.5  
 **Last Updated**: October 20, 2025  
 **Status**: Production Ready 🚀

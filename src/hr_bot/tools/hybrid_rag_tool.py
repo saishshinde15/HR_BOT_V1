@@ -577,6 +577,9 @@ class HybridRAGTool(BaseTool):
         kwargs['retriever'] = retriever_instance
         super().__init__(**kwargs)
         
+        # Initialize _last_sources as a private attribute (not a Pydantic field)
+        object.__setattr__(self, '_last_sources', [])
+        
         # Initialize retriever
         print("Initializing Hybrid RAG system...")
         self.retriever.build_index()
@@ -627,7 +630,9 @@ class HybridRAGTool(BaseTool):
                 sources_accum.append(f"[{idx}] {result.source}")
 
             unique_sources = list(dict.fromkeys(sources_accum))
-            self._last_sources = unique_sources
+            # Store sources at both tool and retriever level for compatibility
+            object.__setattr__(self, '_last_sources', unique_sources)
+            self.retriever._last_sources = unique_sources
             output += "Sources: " + ", ".join(unique_sources) + "\n"
             
             return output
@@ -637,4 +642,7 @@ class HybridRAGTool(BaseTool):
 
     def last_sources(self) -> List[str]:
         """Return the most recent set of sources emitted by the tool."""
-        return list(self._last_sources)
+        try:
+            return list(object.__getattribute__(self, '_last_sources'))
+        except AttributeError:
+            return []

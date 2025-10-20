@@ -37,7 +37,7 @@ def run():
     print("="*70 + "\n")
     
     # Default query for testing
-    default_query = "I was caught using phone while working, what are the consequences?"
+    default_query = "Who are the employees in the system?"
     
     # Check if query is provided as argument
     if len(sys.argv) > 1 and sys.argv[0] != 'crewai':

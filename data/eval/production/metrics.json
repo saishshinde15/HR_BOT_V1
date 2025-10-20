@@ -1,0 +1,6 @@
+{
+  "doc_recall_at_k": 0.8260869565217391,
+  "avg_best_snippet_sim": 0.25560983436352613,
+  "avg_best_snippet_cosine": 0.6399436099231742,
+  "num_examples": 46
+}

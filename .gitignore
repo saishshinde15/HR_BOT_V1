@@ -1,0 +1,13 @@
+.env
+__pycache__/
+.DS_Store
+.venv/
+venv/
+*.pyc
+.pytest_cache/
+.rag_cache/
+.rag_index/
+.apideck_cache/
+*.log
+.cache/
+node_modules/

@@ -1,0 +1,6 @@
+{
+  "retriever_doc_recall@k": 0.34782608695652173,
+  "retriever_avg_snippet_sim": 0.1948743081553875,
+  "agent_avg_answer_snippet_sim": 0.10292704194724425,
+  "num_examples": 46
+}

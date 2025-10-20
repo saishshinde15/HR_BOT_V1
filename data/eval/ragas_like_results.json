@@ -1,0 +1,237 @@
+[
+  {
+    "question": "What is the sick leave policy?",
+    "contexts": [
+      "EITHER - When there is no contractual right to sick pay; employee will only receive SSP use this clause:-\n\n[If you are absent for four or more days by reason of sickness or incapacity, you are entitle",
+      "OR \u2013 When the company operates a company sick pay scheme, use this clause:-\n\n[If you are absent through sickness or incapacity, and you have complied with the requirements above, you will be paid comp",
+      "If the employee\u2019s wife or partner gives birth to a stillborn baby, the employee is entitled to Paternity Leave if the stillbirth happens after 24 weeks of pregnancy. If the stillbirth happens before t",
+      "Where an employee is incapacitated through sickness or injury during any period of pre-booked holiday (whether in whole or in part), the Company will, subject to the correct notification and certifica",
+      "All holiday must be taken in the year in which it is accrued. In exceptional circumstances you may carry forward up to [insert amount] days untaken holiday entitlement to the next holiday year. This a"
+    ],
+    "raw": {
+      "query": "What is the sick leave policy?",
+      "results": [
+        {
+          "chunk_id": 322,
+          "source": "Home-Working-Agreement.docx",
+          "score": 0.5522985567409382,
+          "preview": "EITHER - When there is no contractual right to sick pay; employee will only receive SSP use this clause:-\n\n[If you are absent for four or more days by reason of sickness or incapacity, you are entitle"
+        },
+        {
+          "chunk_id": 323,
+          "source": "Home-Working-Agreement.docx",
+          "score": 0.5472809079235614,
+          "preview": "OR \u2013 When the company operates a company sick pay scheme, use this clause:-\n\n[If you are absent through sickness or incapacity, and you have complied with the requirements above, you will be paid comp"
+        },
+        {
+          "chunk_id": 63,
+          "source": "Paternity-Leave-Policy-Birth.docx",
+          "score": 0.5,
+          "preview": "If the employee\u2019s wife or partner gives birth to a stillborn baby, the employee is entitled to Paternity Leave if the stillbirth happens after 24 weeks of pregnancy. If the stillbirth happens before t"
+        },
+        {
+          "chunk_id": 267,
+          "source": "Sickness-And-Absence-Policy.docx",
+          "score": 0.4931596923772515,
+          "preview": "Where an employee is incapacitated through sickness or injury during any period of pre-booked holiday (whether in whole or in part), the Company will, subject to the correct notification and certifica"
+        },
+        {
+          "chunk_id": 319,
+          "source": "Home-Working-Agreement.docx",
+          "score": 0.42870355291013096,
+          "preview": "All holiday must be taken in the year in which it is accrued. In exceptional circumstances you may carry forward up to [insert amount] days untaken holiday entitlement to the next holiday year. This a"
+        }
+      ]
+    },
+    "answer": "Hi there! I can definitely help you with that. Our sick leave policy is outlined in the \"Sickness-And-Absence-Policy.docx\" document.\n\nHere's a quick summary:\n\n*   **Reporting:** If you're unable to come to work due to illness, please notify your manager as soon as possible, and definitely before your scheduled start time.\n*   **Medical Certificates:** For absences of more than \\[insert amount] calendar days, you'll need to provide a medical certificate (also known as a 'fit note').\n*   **Holiday During Sickness:** If you become sick during a pre-booked holiday, and you provide the correct notification and certification, the company will address it.\n\nFor more detailed information, please refer to the full policy document, \"Sickness-And-Absence-Policy.docx\". If you have any further questions or need clarification, please don't hesitate to reach out to your manager or the HR department.",
+    "support_score": 0.125
+  },
+  {
+    "question": "What are the notice period requirements?",
+    "contexts": [
+      "[OR (this option reflects the statutory notice period provided by law)\n\n\n18.1\tYour contract of employment may be ended by written notice as follows:\n\n\n\n\t\t\t\tNotice to be given by the Company:\n\n\n\n\t\t\t\t\t\t",
+      "Notice Periods\n\n\n\nSubject to employees\u2019 terms and conditions of employment, which may set out a longer notice period, [following the probationary period] the Company will give employees one week\u2019s not",
+      "[On Company Letterhead]\n\n\n\n\t\n\n\t\n\n\t[Today\u2019s date]\n\n\t\n\n\t\n\n\tPrivate and Confidential\n\n\t\n\n\t\n\n\n\nDear [Insert Name]\n\n\n\n\n\nThank you for your letter of resignation dated [insert date].\n\n\n\nWe are very sorry th",
+      "Where an employee is entitled to receive ShPP they must, at least eight weeks before receiving any ShPP, give [insert name and job title] OR [insert name of HR Manager] written notice advising of thei",
+      "[Under the terms of your contract of employment will not be required to work out your notice period and the cessation of your employment will be on [insert date]. In lieu of working your notice period"
+    ],
+    "raw": {
+      "query": "What are the notice period requirements?",
+      "results": [
+        {
+          "chunk_id": 332,
+          "source": "Home-Working-Agreement.docx",
+          "score": 0.5811973375457256,
+          "preview": "[OR (this option reflects the statutory notice period provided by law)\n\n\n18.1\tYour contract of employment may be ended by written notice as follows:\n\n\n\n\t\t\t\tNotice to be given by the Company:\n\n\n\n\t\t\t\t\t\t"
+        },
+        {
+          "chunk_id": 238,
+          "source": "Notice-Periods-Policy.docx",
+          "score": 0.5419593552690971,
+          "preview": "Notice Periods\n\n\n\nSubject to employees\u2019 terms and conditions of employment, which may set out a longer notice period, [following the probationary period] the Company will give employees one week\u2019s not"
+        },
+        {
+          "chunk_id": 219,
+          "source": "Letter-putting-employee-on-garden-leave.docx",
+          "score": 0.5,
+          "preview": "[On Company Letterhead]\n\n\n\n\t\n\n\t\n\n\t[Today\u2019s date]\n\n\t\n\n\t\n\n\tPrivate and Confidential\n\n\t\n\n\t\n\n\n\nDear [Insert Name]\n\n\n\n\n\nThank you for your letter of resignation dated [insert date].\n\n\n\nWe are very sorry th"
+        },
+        {
+          "chunk_id": 390,
+          "source": "Shared-Parental-Leave-Policy.docx",
+          "score": 0.47582784298491954,
+          "preview": "Where an employee is entitled to receive ShPP they must, at least eight weeks before receiving any ShPP, give [insert name and job title] OR [insert name of HR Manager] written notice advising of thei"
+        },
+        {
+          "chunk_id": 55,
+          "source": "Letter-acknowledging-resignation.docx",
+          "score": 0.46205354002291843,
+          "preview": "[Under the terms of your contract of employment will not be required to work out your notice period and the cessation of your employment will be on [insert date]. In lieu of working your notice period"
+        }
+      ]
+    },
+    "answer": "Hi there! I can definitely help you with that. According to our \"Notice Periods Policy,\" the notice period you need to give depends on your employment terms and conditions. Generally, after your probationary period, the company will give employees one week's notice. Your specific contract might have a longer notice period, so I recommend checking your employment contract for the exact details. If you have any further questions, please don't hesitate to reach out to the HR department.",
+    "support_score": 0.5
+  },
+  {
+    "question": "What is the redundancy process?",
+    "contexts": [
+      "The Company will communicate the outcome of the appeal to the employee in writing as soon as reasonably practicable after the appeal is held, and usually within [insert number] working days.\n\nThe appe",
+      "If it is agreed that the new position is not suitable, either during or at the end of the trial period, the employee will be regarded as having been made redundant and will be able to claim any redund",
+      "The Redundancy Notice will:\n\nState that the employee is to be made redundant;\n\nState the circumstances which have led to the employee being selected for redundancy;\n\nSpecify the date on which employme",
+      "When calculating redundancy pay, only the most recent 20 years of continuous service is taken into account.\n\nFurther Support\n\nThe Company recognises that redundancy can be a stressful and traumatic ex",
+      "Be mindful of what constitutes confidential or restricted information and ensure that such information is never disseminated in the course of communications without express authority;\n\nBe mindful of w"
+    ],
+    "raw": {
+      "query": "What is the redundancy process?",
+      "results": [
+        {
+          "chunk_id": 358,
+          "source": "Redundancy-Policy.docx",
+          "score": 0.5001731216907501,
+          "preview": "The Company will communicate the outcome of the appeal to the employee in writing as soon as reasonably practicable after the appeal is held, and usually within [insert number] working days.\n\nThe appe"
+        },
+        {
+          "chunk_id": 353,
+          "source": "Redundancy-Policy.docx",
+          "score": 0.4845412780867659,
+          "preview": "If it is agreed that the new position is not suitable, either during or at the end of the trial period, the employee will be regarded as having been made redundant and will be able to claim any redund"
+        },
+        {
+          "chunk_id": 354,
+          "source": "Redundancy-Policy.docx",
+          "score": 0.45021432608844747,
+          "preview": "The Redundancy Notice will:\n\nState that the employee is to be made redundant;\n\nState the circumstances which have led to the employee being selected for redundancy;\n\nSpecify the date on which employme"
+        },
+        {
+          "chunk_id": 360,
+          "source": "Redundancy-Policy.docx",
+          "score": 0.43031860166990366,
+          "preview": "When calculating redundancy pay, only the most recent 20 years of continuous service is taken into account.\n\nFurther Support\n\nThe Company recognises that redundancy can be a stressful and traumatic ex"
+        },
+        {
+          "chunk_id": 5,
+          "source": "Communications-Email-Internet-and-Social-Media-Policy.docx",
+          "score": 0.41294759516074087,
+          "preview": "Be mindful of what constitutes confidential or restricted information and ensure that such information is never disseminated in the course of communications without express authority;\n\nBe mindful of w"
+        }
+      ]
+    },
+    "answer": "Hi there! I can definitely help you understand the redundancy process. According to our \"Redundancy-Policy.docx\", here's a simplified overview:\n\nThe policy outlines the procedures and principles followed by the company during a redundancy situation. While the document provides a general framework, the specific steps and timelines can vary depending on the situation.\n\nKey aspects of the process typically include:\n\n*   **Notification:** The company will communicate with employees who may be affected.\n*   **Consultation:** There will be a consultation period where the company discusses the situation with affected employees.\n*   **Appeal:** Employees have the right to appeal the decision. The company will communicate the outcome of the appeal to the employee in writing as soon as reasonably practicable after the appeal is held, and usually within a certain number of working days.\n\nFor more detailed information, please refer to the full \"Redundancy-Policy.docx\" document. If you have specific questions about your situation, I recommend reaching out to your HR representative or your manager. They can provide you with the most accurate and up-to-date information.",
+    "support_score": 0.18181818181818182
+  },
+  {
+    "question": "What is acceptable use of company email and social media?",
+    "contexts": [
+      "[With the prior agreement of the [insert name and job title], all]/All employees are permitted to use their own devices for work-related purposes.  However, employees must agree to the terms and condi",
+      "Unless using Social Media on behalf of the Company, Users should not use any Social Media accounts belonging to (or otherwise associated with) the Company.\n\nCompany email addresses may [not be used to",
+      "Use Social Media responsibly and professionally, and at all times in accordance with their duties;\n\nBe mindful of what constitutes confidential, restricted, or other proprietary information and ensure",
+      "Personal data relating to [insert individuals, eg customers, colleagues].\n\nUsers may not use any intellectual property belonging to the Company on Social Media (including, but not limited to, trademar",
+      "This section of this Policy addresses the use by Users of all types of social network and social media platforms including, but not limited to, Facebook, Twitter, LinkedIn, Google+, Pinterest, Tumblr,"
+    ],
+    "raw": {
+      "query": "What is acceptable use of company email and social media?",
+      "results": [
+        {
+          "chunk_id": 291,
+          "source": "Bring-Your-Own-Device-BYOD-Policy.docx",
+          "score": 0.5,
+          "preview": "[With the prior agreement of the [insert name and job title], all]/All employees are permitted to use their own devices for work-related purposes.  However, employees must agree to the terms and condi"
+        },
+        {
+          "chunk_id": 22,
+          "source": "Communications-Email-Internet-and-Social-Media-Policy.docx",
+          "score": 0.4938918156445385,
+          "preview": "Unless using Social Media on behalf of the Company, Users should not use any Social Media accounts belonging to (or otherwise associated with) the Company.\n\nCompany email addresses may [not be used to"
+        },
+        {
+          "chunk_id": 13,
+          "source": "Communications-Email-Internet-and-Social-Media-Policy.docx",
+          "score": 0.4851989420172368,
+          "preview": "Use Social Media responsibly and professionally, and at all times in accordance with their duties;\n\nBe mindful of what constitutes confidential, restricted, or other proprietary information and ensure"
+        },
+        {
+          "chunk_id": 26,
+          "source": "Communications-Email-Internet-and-Social-Media-Policy.docx",
+          "score": 0.47364345164649696,
+          "preview": "Personal data relating to [insert individuals, eg customers, colleagues].\n\nUsers may not use any intellectual property belonging to the Company on Social Media (including, but not limited to, trademar"
+        },
+        {
+          "chunk_id": 12,
+          "source": "Communications-Email-Internet-and-Social-Media-Policy.docx",
+          "score": 0.447072652488483,
+          "preview": "This section of this Policy addresses the use by Users of all types of social network and social media platforms including, but not limited to, Facebook, Twitter, LinkedIn, Google+, Pinterest, Tumblr,"
+        }
+      ]
+    },
+    "answer": "Hi there! I can definitely help you with that. Our company's policies regarding email and social media use are outlined in the \"Communications-Email-Internet-and-Social-Media-Policy.docx\" document.\n\nHere's a quick summary:\n\n*   **Company Email:** Company email addresses should not be used for anything that violates company policy.\n*   **Social Media:** If you're not using social media on behalf of the company, you shouldn't use any company-associated social media accounts. You also can't use any of the company's intellectual property on social media.\n\nFor more detailed information, please refer to the full policy document. If you have any further questions, please don't hesitate to ask!",
+    "support_score": 0.375
+  },
+  {
+    "question": "What are the home working rules?",
+    "contexts": [
+      "Employees working from home will be required to sign a Home Working Agreement before being allowed to work from home.\n\nApproved home working arrangements will be subject to a trial evaluation period b",
+      "It is the responsibility of the home working employees to inform their [insert job title] if their home working base changes.\n\nEmployees are entitled to apply for combinations of flexible working opti",
+      "Employees will be held responsible for the loss or damage to any supplied equipment when caused by failure to take adequate precautions to ensure its safety.\n\nEmployees working from home are covered b",
+      "Occasional or ad hoc home working: employees who work at home on an ad hoc basis, without a formalised agreement, to carry out a specific task. The office base for these employees will remain the Comp",
+      "Yes\n\nNo\n\nWhen did you submit your last request for flexible working?\n\n\u00a0\n\nAre you a disabled person whose request for flexible working is related to your disability?\n\nYes\n\nNo\n\nI wish to submit a statut"
+    ],
+    "raw": {
+      "query": "What are the home working rules?",
+      "results": [
+        {
+          "chunk_id": 91,
+          "source": "Home-Working-Policy.docx",
+          "score": 0.6055525299697923,
+          "preview": "Employees working from home will be required to sign a Home Working Agreement before being allowed to work from home.\n\nApproved home working arrangements will be subject to a trial evaluation period b"
+        },
+        {
+          "chunk_id": 88,
+          "source": "Home-Working-Policy.docx",
+          "score": 0.5611939513693532,
+          "preview": "It is the responsibility of the home working employees to inform their [insert job title] if their home working base changes.\n\nEmployees are entitled to apply for combinations of flexible working opti"
+        },
+        {
+          "chunk_id": 98,
+          "source": "Home-Working-Policy.docx",
+          "score": 0.5173717714637964,
+          "preview": "Employees will be held responsible for the loss or damage to any supplied equipment when caused by failure to take adequate precautions to ensure its safety.\n\nEmployees working from home are covered b"
+        },
+        {
+          "chunk_id": 86,
+          "source": "Home-Working-Policy.docx",
+          "score": 0.5160221506095988,
+          "preview": "Occasional or ad hoc home working: employees who work at home on an ad hoc basis, without a formalised agreement, to carry out a specific task. The office base for these employees will remain the Comp"
+        },
+        {
+          "chunk_id": 282,
+          "source": "Flexible-Working-Request-Form.docx",
+          "score": 0.5,
+          "preview": "Yes\n\nNo\n\nWhen did you submit your last request for flexible working?\n\n\u00a0\n\nAre you a disabled person whose request for flexible working is related to your disability?\n\nYes\n\nNo\n\nI wish to submit a statut"
+        }
+      ]
+    },
+    "answer": "Hi there! I can definitely help you with the home working rules. According to our \"Home-Working-Policy.docx\", here's a summary:\n\n*   **Eligibility:** The policy doesn't specify eligibility, but it does mention that employees can apply for flexible working options.\n*   **Agreement:** If you're approved for home working, you'll need to sign a Home Working Agreement.\n*   **Changes:** If your home working base changes, you need to inform your \\[insert job title].\n*   **Trial Period:** Approved home working arrangements will be subject to a trial evaluation period.\n\nFor more detailed information or to apply for home working, please refer to the full \"Home-Working-Policy.docx\" document. If you have any further questions, please reach out to your manager or the HR department.",
+    "support_score": 0.375
+  }
+]

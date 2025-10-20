@@ -1,0 +1,59 @@
+[project]
+name = "hr_bot"
+version = "1.0.0"
+description = "Production-ready HR Bot with Hybrid RAG and API Deck integration"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    # Core CrewAI
+    "crewai[tools]>=0.130.0,<1.0.0",
+    # Langchain & Google AI
+    "langchain>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langchain-google-genai>=2.0.5",
+    # Vector Store & Search
+    "faiss-cpu>=1.8.0",
+    "rank-bm25>=0.2.2",
+    # Document Processing
+    "unstructured[docx]>=0.12.0",
+    "python-docx>=1.1.0",
+    "docx2txt>=0.8",
+    # HTTP & API
+    "httpx>=0.27.0",
+    # Caching & Performance
+    "diskcache>=5.6.3",
+    # Utilities
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "python-dotenv>=1.0.0",
+    # Local Embeddings (HuggingFace) - replace remote Gemini embeddings for vectors
+    "langchain-huggingface>=0.3.0",
+    "sentence-transformers>=5.1.0",
+    "pytest>=8.2.0",
+    # Evaluation & hallucination metrics
+    "ragas>=0.1.20",
+    "datasets>=2.19.0",
+    "evaluate>=0.4.1",
+    # UI
+    "streamlit>=1.38.0",
+]
+
+[project.scripts]
+hr_bot = "hr_bot.main:run"
+hr_bot_interactive = "hr_bot.main:interactive"
+hr_bot_setup = "hr_bot.main:setup"
+run_crew = "hr_bot.main:run_crew"
+train = "hr_bot.main:train"
+replay = "hr_bot.main:replay"
+test = "hr_bot.main:test"
+generate_eval = "hr_bot.eval.generate_dataset:main"
+eval = "hr_bot.eval.run_eval:main"
+ragas_eval = "hr_bot.eval.ragas_eval:main"
+ragas_prod_eval = "hr_bot.eval.ragas_production_eval:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "crew"

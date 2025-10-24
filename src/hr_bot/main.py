@@ -10,8 +10,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from hr_bot.crew_hierarchical import HrBotHierarchical
-
+#from hr_bot.crew_hierarchical import HrBotHierarchical
+from hr_bot.crew import HrBot
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 
 
@@ -37,7 +37,7 @@ def run():
     print("="*70 + "\n")
     
     # Default query for testing
-    default_query = "Who are the employees in the system?"
+    default_query = "I was caught using phone while on duty, what are the consequences?"
     
     # Check if query is provided as argument
     if len(sys.argv) > 1 and sys.argv[0] != 'crewai':
@@ -59,7 +59,8 @@ def run():
     
     try:
         print("\nProcessing your query...\n")
-        result = HrBotHierarchical().crew().kickoff(inputs=inputs)
+        #result = HrBotHierarchical().crew().kickoff(inputs=inputs)
+        result = HrBot().crew().kickoff(inputs=inputs)
         
         return result
         
@@ -81,7 +82,8 @@ def interactive():
     print("="*70 + "\n")
     print("Ask about HR policies or procedures (type 'exit' to quit).\n")
     
-    bot = HrBotHierarchical()
+    #bot = HrBotHierarchical()
+    bot = HrBot()
     
     while True:
         try:

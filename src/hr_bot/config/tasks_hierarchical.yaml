@@ -221,6 +221,8 @@ search_policy_documents:
     - Anticipate follow-up questions and answer them proactively
     - Make employees feel SUPPORTED and CONFIDENT
     - ALWAYS end with 📄 **Sources:** [list of documents]
+    - If you cannot find relevant information or if query is dynamic, state that I am unable to
+      provide an answer based on policy documents and suggest next steps (e.g., contact HR)
     
     **Tone Examples:**
     

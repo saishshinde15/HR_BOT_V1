@@ -1,13 +1,50 @@
+# Environment variables (CRITICAL - Never commit credentials!)
 .env
+*.env
+.env.*
+
+# Memory database (regenerated automatically)
+storage/long_term_memory.db
+storage/*.db
+
+# Python cache
 __pycache__/
-.DS_Store
-.venv/
-venv/
 *.pyc
-.pytest_cache/
-.rag_cache/
-.rag_index/
-.apideck_cache/
+*.pyo
+*.pyd
+.Python
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
 *.log
-.cache/
-node_modules/
+
+# RAG indices (regenerated from policy docs)
+storage/faiss_index/
+storage/bm25_index.pkl
+storage/*.pkl
+.rag_index/
+.rag_cache/
+.apideck_cache/
+
+# Test outputs
+*.tmp
+test_output/
+
+# UV lock (optional - some teams commit this)
+# uv.lock

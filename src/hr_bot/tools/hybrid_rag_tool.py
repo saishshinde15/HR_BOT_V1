@@ -133,6 +133,8 @@ class HybridRAGRetriever:
             hasher.update(file_path.name.encode())
         # Include key config affecting index layout
         hasher.update(f"chunk_size:{self.chunk_size}|overlap:{self.chunk_overlap}".encode())
+        # Bump when sanitization logic changes to force index rebuild
+        hasher.update(b"sanitize_placeholders_v3")
         return hasher.hexdigest()
     
     def _load_documents(self, data_dir: Path) -> List[Document]:
@@ -163,10 +165,77 @@ class HybridRAGRetriever:
         """Clean placeholder tokens like [insert job title] or [the Company]"""
         if not text:
             return text
-        patterns = [r"\[insert name and job title\]", r"\[insert job title\]"]
-        for p in patterns:
-            text = re.sub(p, "HR Representative", text, flags=re.IGNORECASE)
-        text = re.sub(r"\[the Company\]", "the company", text, flags=re.IGNORECASE)
+        # Map explicit placeholders to friendly replacements
+        replacements = {
+            r"\[insert name and job title\]": "HR Representative",
+            r"\[insert job title\]": "HR Representative",
+            r"\[the Company\]": "the company",
+            r"\[Company Name\]": "the company",
+            r"\[Employee\]": "employee",
+            r"\[INSERT LOGO HERE\]": "",
+            r"\[days\]": "days",
+            r"\[weeks\]": "weeks",
+            r"\[months\]": "months",
+            r"\[hours\]": "hours",
+        }
+        for pattern, replacement in replacements.items():
+            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
+        # Target common template placeholders with contextual language
+        text = re.sub(
+            r"\[\s*insert\s+amount\s+of\s+days[^\]]*\]",
+            "the approved number of days",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\[\s*insert\s+amount\s+of\s+weeks[^\]]*\]",
+            "the approved number of weeks",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\[\s*insert\s+amount\s+of\s+months[^\]]*\]",
+            "the approved number of months",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\[\s*insert\s+amount\s*\]\s*%",
+            "the applicable percentage",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\[\s*insert\s+amount\s*\]",
+            "the applicable amount",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # Generic fallbacks for remaining "insert" or "state" placeholders
+        text = re.sub(
+            r"\[\s*insert[^\]]*\]",
+            "the appropriate details",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\[\s*state[^\]]*\]",
+            "the documented location",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # Normalize lingering bracketed prose such as [Provided the employee ...]
+        def _strip_template_brackets(match: "re.Match[str]") -> str:
+            inner = match.group(1).strip()
+            # Keep short markers like [1] untouched by requiring whitespace inside
+            if " " not in inner:
+                return inner
+            return inner
+
+        text = re.sub(r"\[\s*([^\[\]\n]{3,}?)\s*\]", _strip_template_brackets, text)
         return text
     
     def _chunk_documents(self, documents: List[Document]) -> List[Document]:

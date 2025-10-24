@@ -1,0 +1,10 @@
+[
+  {
+    "model_id": "gemini/gemini-2.0-flash-lite-001",
+    "usd_per_million_input_tokens": 0.075,
+    "usd_per_million_output_tokens": 0.30,
+    "vendor": "Google",
+    "notes": "Gemini 2.0 Flash Lite - Official pricing as of Oct 2024",
+    "aliases": ["gemini-2.0-flash-lite", "flash-lite"]
+  }
+]

@@ -185,7 +185,7 @@ class HrBotHierarchical():
         """
         
         # Create agent instances
-        manager_agent = self.hr_manager()
+        #manager_agent = self.hr_manager()
         policy_agent = self.policy_specialist()
         hrms_agent = self.hrms_specialist()
 
@@ -199,9 +199,10 @@ class HrBotHierarchical():
                 hrms_agent,    # Has Apideck tool - for dynamic system operations
             ],
             tasks=[
-                manager_task,  # Manager decides which specialist to engage
+                manager_task,
+                
             ],
-            process=Process.hierarchical,
+            process=Process.sequential,
             manager_agent=manager_agent,
             verbose=True,
             memory=False,

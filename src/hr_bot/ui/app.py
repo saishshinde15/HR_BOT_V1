@@ -1,5 +1,6 @@
 """
-HR Assistant - Minimal Professional Design (Grok-inspired)
+HR Assistant - Professional Enterprise UI
+Clean, modern interface for HR policy assistance
 """
 
 from __future__ import annotations
@@ -67,10 +68,11 @@ MINIMAL_CSS = """
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* ==================== DARK THEME BASE ==================== */
+    /* ==================== DARK THEME BASE WITH SUBTLE GRADIENT ==================== */
     .main {
-        background-color: #0f0f0f;
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%) !important;
         color: #e5e5e5;
+        min-height: 100vh;
     }
     
     .block-container {
@@ -79,21 +81,25 @@ MINIMAL_CSS = """
         max-width: 900px !important;
     }
     
-    /* ==================== HEADER - MINIMAL & CLEAN ==================== */
+    /* ==================== HEADER - PROFESSIONAL WITH GRADIENT ==================== */
     h1 {
-        font-size: 1.75rem !important;
-        font-weight: 500 !important;
-        color: #ffffff !important;
-        margin-bottom: 0.5rem !important;
-        letter-spacing: -0.02em !important;
+        font-size: 2rem !important;
+        font-weight: 600 !important;
+        background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        margin-bottom: 0.75rem !important;
+        letter-spacing: -0.03em !important;
     }
     
-    /* Subtitle */
+    /* Subtitle with better spacing */
     [data-testid="stCaptionContainer"] {
-        font-size: 0.95rem !important;
-        color: #888888 !important;
+        font-size: 1rem !important;
+        color: #999999 !important;
         font-weight: 300 !important;
-        margin-bottom: 2rem !important;
+        margin-bottom: 3rem !important;
+        letter-spacing: 0.01em !important;
     }
     
     /* ==================== CHAT MESSAGES - CLEAN BUBBLES ==================== */
@@ -121,22 +127,22 @@ MINIMAL_CSS = """
         box-shadow: none !important;
     }
     
-    /* Assistant messages - clean, left-aligned */
+    /* Assistant messages - clean, professional with subtle background */
     [data-testid="assistant"] {
         display: flex;
         justify-content: flex-start;
     }
     
     [data-testid="assistant"] > div {
-        background: transparent !important;
+        background: rgba(255, 255, 255, 0.02) !important;
         color: #e5e5e5 !important;
-        padding: 1rem 0 !important;
-        border-radius: 0 !important;
+        padding: 1.5rem !important;
+        border-radius: 1rem !important;
         max-width: 85% !important;
         font-size: 0.95rem !important;
         line-height: 1.7 !important;
-        border: none !important;
-        box-shadow: none !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
     }
     
     /* ==================== MESSAGE CONTENT STYLING ==================== */
@@ -197,18 +203,23 @@ MINIMAL_CSS = """
         font-weight: 300 !important;
     }
     
-    /* ==================== INPUT AREA - CLEAN & FOCUSED ==================== */
+
+    
+    /* ==================== INPUT AREA - MODERN & INVITING ==================== */
     .stChatInputContainer {
-        background: #1a1a1a !important;
-        border: 1px solid #2a2a2a !important;
+        background: linear-gradient(135deg, rgba(30, 30, 30, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 1.5rem !important;
-        padding: 0.5rem 1rem !important;
-        transition: all 0.2s ease !important;
+        padding: 0.75rem 1.25rem !important;
+        transition: all 0.3s ease !important;
+        backdrop-filter: blur(10px) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
     }
     
     .stChatInputContainer:focus-within {
-        border-color: #4a4a4a !important;
-        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(255, 255, 255, 0.08) !important;
+        transform: translateY(-1px) !important;
     }
     
     .stChatInput textarea {
@@ -221,7 +232,8 @@ MINIMAL_CSS = """
     }
     
     .stChatInput textarea::placeholder {
-        color: #666666 !important;
+        color: #777777 !important;
+        font-weight: 300 !important;
     }
     
     .stChatInput textarea:focus {
@@ -271,8 +283,74 @@ MINIMAL_CSS = """
         }
     }
     
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+    }
+    
+    @keyframes typing {
+        0%, 100% {
+            opacity: 0.3;
+        }
+        50% {
+            opacity: 1;
+        }
+    }
+    
+    /* Message animations */
     .stChatMessage {
         animation: fadeIn 0.3s ease-out;
+    }
+    
+    [data-testid="user"] {
+        animation: slideInRight 0.4s ease-out;
+    }
+    
+    [data-testid="assistant"] {
+        animation: slideInLeft 0.4s ease-out;
+    }
+    
+    /* Typing indicator animation */
+    .typing-indicator {
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    .typing-dot {
+        animation: typing 1.4s infinite;
+    }
+    
+    .typing-dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+    
+    .typing-dot:nth-child(3) {
+        animation-delay: 0.4s;
     }
     
     /* ==================== RESPONSIVE ==================== */
@@ -363,20 +441,48 @@ def clean_markdown_artifacts(text: str) -> str:
     return text
 
 
+def remove_document_evidence_section(text: str) -> str:
+    """CRITICAL: Remove any 'Document Evidence' section that appears after sources."""
+    lines = text.splitlines()
+    result_lines = []
+    found_sources = False
+    skip_remaining = False
+    
+    for line in lines:
+        # Check if we hit the sources line
+        if line.lower().startswith("sources:") or "**sources:**" in line.lower():
+            found_sources = True
+            result_lines.append(line)
+            skip_remaining = True  # Skip everything after sources
+            continue
+        
+        # If we haven't found sources yet, or we're before sources, keep the line
+        if not skip_remaining:
+            # Skip any line with "Document Evidence" heading
+            if "document evidence" in line.lower() and ("##" in line or "**" in line):
+                skip_remaining = True
+                continue
+            result_lines.append(line)
+        # After sources, skip everything (including Document Evidence section)
+    
+    return "\n".join(result_lines)
+
+
 def format_answer(answer: str) -> str:
     """Apply formatting and clean up artifacts."""
     answer = clean_markdown_artifacts(answer)
+    answer = remove_document_evidence_section(answer)  # CRITICAL: Remove Document Evidence
     answer = format_sources(answer)
     return answer
 
 
 def render_message(role: str, content: str) -> None:
-    """Render chat message."""
+    """Render chat message with clean, professional styling."""
     with st.chat_message(role):
         if role == "assistant":
             st.markdown(format_answer(content))
         else:
-            st.markdown(content)
+            st.markdown(content, unsafe_allow_html=False)
 
 
 # ============================================================================
@@ -401,9 +507,27 @@ def _warm_bot(bot: HrBot) -> None:
         pass
 
 
-def query_bot(bot: HrBot, question: str) -> str:
-    """Query the bot."""
-    result = bot.crew().kickoff(inputs={"query": question, "context": ""})
+def build_history_context(history: List[Dict[str, str]], new_question: str | None = None, max_entries: int = 3) -> str:
+    """Construct a lightweight conversation context string for the LLM."""
+    user_messages: List[str] = [msg["content"] for msg in history if msg.get("role") == "user"]
+    if new_question:
+        user_messages.append(new_question)
+
+    if not user_messages:
+        return ""
+
+    recent_messages = user_messages[-max_entries:]
+    history_parts = []
+    for idx, content in enumerate(recent_messages, 1):
+        history_parts.append(f"Question {idx}: {content[:200]}")
+
+    return "Recent conversation:\n" + "\n".join(history_parts)
+
+
+def query_bot(bot: HrBot, question: str, history_context: str) -> str:
+    """Query the bot with an explicit conversation history context."""
+    inputs = {"query": question, "context": history_context or ""}
+    result = bot.crew().kickoff(inputs=inputs)
     return str(result)
 
 
@@ -413,6 +537,21 @@ def _rerun() -> None:
         st.rerun()
     else:
         st.experimental_rerun()
+
+
+def render_typing_indicator() -> None:
+    """Render animated typing indicator."""
+    typing_html = """
+    <div style="display: flex; align-items: center; gap: 0.5rem; padding: 1rem 0;">
+        <div style="display: flex; gap: 0.3rem;">
+            <div class="typing-dot" style="width: 8px; height: 8px; background: #888888; border-radius: 50%;"></div>
+            <div class="typing-dot" style="width: 8px; height: 8px; background: #888888; border-radius: 50%;"></div>
+            <div class="typing-dot" style="width: 8px; height: 8px; background: #888888; border-radius: 50%;"></div>
+        </div>
+        <span style="color: #888888; font-size: 0.9rem; font-weight: 300; margin-left: 0.5rem;">Thinking...</span>
+    </div>
+    """
+    st.markdown(typing_html, unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -429,12 +568,28 @@ def main() -> None:
         initial_sidebar_state="collapsed",
     )
 
-    # Apply minimal styling
+    # Apply professional styling
     st.markdown(MINIMAL_CSS, unsafe_allow_html=True)
 
-    # Simple header
+    # Professional header with emoji and description
     st.title("💼 HR Assistant")
-    st.caption("Ask me anything about company policies, benefits, and procedures")
+    st.caption("Your trusted companion for HR policies, benefits, and workplace guidance. Ask me anything!")
+    
+    # Add a subtle welcome message for first-time users
+    if len(st.session_state.get("history", [])) == 0:
+        st.markdown("""
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); 
+                    border-radius: 1rem; padding: 1.5rem; margin: 2rem 0; text-align: center;">
+            <div style="font-size: 1.1rem; color: #ffffff; font-weight: 500; margin-bottom: 0.75rem;">
+                👋 Welcome! How can I help you today?
+            </div>
+            <div style="font-size: 0.9rem; color: #999999; line-height: 1.6;">
+                I can answer questions about company policies, leave requests, benefits, procedures, and more.<br/>
+                Try asking: <span style="color: #cccccc;">"What is the sick leave policy?"</span> or 
+                <span style="color: #cccccc;">"How do I request vacation?"</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # Initialize session state
     if "history" not in st.session_state:
@@ -452,7 +607,7 @@ def main() -> None:
     if st.session_state["warm_future"] is None:
         st.session_state["warm_future"] = executor.submit(_warm_bot, bot)
 
-    # Render chat history FIRST (before checking pending)
+    # Render chat history
     for message in st.session_state["history"]:
         render_message(message["role"], message["content"])
 
@@ -472,7 +627,7 @@ def main() -> None:
                 del st.session_state.pending_response
                 _rerun()
         else:
-            # Show status while processing
+            # Show animated typing indicator while processing
             elapsed = time.time() - pending.get("start_time", time.time())
             if elapsed < 8:
                 status = "Thinking..."
@@ -482,16 +637,27 @@ def main() -> None:
                 status = "Crafting response..."
 
             with st.chat_message("assistant"):
-                st.info(status)
+                typing_html = f"""
+                <div style="display: flex; align-items: center; gap: 0.5rem; padding: 1rem 0;">
+                    <div style="display: flex; gap: 0.3rem;">
+                        <div class="typing-dot" style="width: 8px; height: 8px; background: #888888; border-radius: 50%;"></div>
+                        <div class="typing-dot" style="width: 8px; height: 8px; background: #888888; border-radius: 50%;"></div>
+                        <div class="typing-dot" style="width: 8px; height: 8px; background: #888888; border-radius: 50%;"></div>
+                    </div>
+                    <span style="color: #888888; font-size: 0.9rem; font-weight: 300; margin-left: 0.5rem;">{status}</span>
+                </div>
+                """
+                st.markdown(typing_html, unsafe_allow_html=True)
             time.sleep(1)
             _rerun()
 
     # Chat input - DON'T render immediately, just add to history
     if prompt := st.chat_input(DEFAULT_PLACEHOLDER):
+        history_context = build_history_context(st.session_state["history"], prompt)
         # Add to history (will be rendered on next rerun)
         st.session_state["history"].append({"role": "user", "content": prompt})
         # Start processing
-        future = executor.submit(query_bot, bot, prompt)
+        future = executor.submit(query_bot, bot, prompt, history_context)
         st.session_state["pending_response"] = {"future": future, "start_time": time.time()}
         _rerun()
 

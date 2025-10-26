@@ -52,12 +52,12 @@ WARMUP_QUERIES: List[str] = [
 ]
 
 # ============================================================================
-# MINIMAL PROFESSIONAL STYLING (Grok-inspired)
+# MINIMAL PROFESSIONAL STYLING 
 # ============================================================================
 
 MINIMAL_CSS = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
     /* ==================== GLOBAL RESET ==================== */
     * {
@@ -68,172 +68,293 @@ MINIMAL_CSS = """
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* ==================== DARK THEME BASE WITH SUBTLE GRADIENT ==================== */
+    /* Remove edit buttons completely */
+    button[title="Copy message"],
+    button[title="Copy"],
+    button[aria-label*="Copy"],
+    [data-testid="stChatMessageCopyButton"],
+    .stChatMessage button {
+        display: none !important;
+    }
+    
+    /* ==================== DARK THEME BASE WITH RICH GRADIENT ==================== */
     .main {
-        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0f0f0f 100%) !important;
+        background: radial-gradient(ellipse at top, #1a1a2e 0%, #0f0f1e 50%, #000000 100%) !important;
         color: #e5e5e5;
         min-height: 100vh;
+        position: relative;
+    }
+    
+    /* Subtle animated background effect */
+    .main::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: 
+            radial-gradient(ellipse at 20% 30%, rgba(120, 119, 198, 0.05) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 70%, rgba(255, 107, 107, 0.03) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
     }
     
     .block-container {
         padding-top: 3rem !important;
         padding-bottom: 2rem !important;
         max-width: 900px !important;
+        position: relative;
+        z-index: 1;
     }
     
-    /* ==================== HEADER - PROFESSIONAL WITH GRADIENT ==================== */
+    /* ==================== HEADER - STUNNING GRADIENT TITLE ==================== */
     h1 {
-        font-size: 2rem !important;
-        font-weight: 600 !important;
-        background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%) !important;
+        font-size: 2.5rem !important;
+        font-weight: 700 !important;
+        background: linear-gradient(135deg, #ffffff 0%, #a8a8ff 50%, #7877c6 100%) !important;
         -webkit-background-clip: text !important;
         -webkit-text-fill-color: transparent !important;
         background-clip: text !important;
-        margin-bottom: 0.75rem !important;
-        letter-spacing: -0.03em !important;
+        margin-bottom: 0.5rem !important;
+        letter-spacing: -0.04em !important;
+        animation: fadeInDown 0.6s ease-out;
     }
     
-    /* Subtitle with better spacing */
+    /* Subtitle with elegant styling */
     [data-testid="stCaptionContainer"] {
-        font-size: 1rem !important;
-        color: #999999 !important;
-        font-weight: 300 !important;
-        margin-bottom: 3rem !important;
-        letter-spacing: 0.01em !important;
+        font-size: 1.05rem !important;
+        color: #a0a0a0 !important;
+        font-weight: 400 !important;
+        margin-bottom: 2.5rem !important;
+        letter-spacing: 0.02em !important;
+        animation: fadeIn 0.8s ease-out 0.2s both;
     }
     
-    /* ==================== CHAT MESSAGES - CLEAN BUBBLES ==================== */
+    /* ==================== CHAT MESSAGES - ELEGANT BUBBLES WITH DEPTH ==================== */
     .stChatMessage {
         background: transparent !important;
-        padding: 0.75rem 0 !important;
+        padding: 1rem 0 !important;
         border: none !important;
+        margin: 0.5rem 0 !important;
     }
     
-    /* User messages - subtle, right-aligned */
+    /* User messages - sleek, right-aligned with subtle glow */
     [data-testid="user"] {
         display: flex;
         justify-content: flex-end;
     }
     
     [data-testid="user"] > div {
-        background: #1a1a1a !important;
-        border: 1px solid #2a2a2a !important;
-        color: #e5e5e5 !important;
-        padding: 1rem 1.25rem !important;
-        border-radius: 1.25rem !important;
+        background: linear-gradient(135deg, rgba(120, 119, 198, 0.15) 0%, rgba(120, 119, 198, 0.08) 100%) !important;
+        border: 1px solid rgba(120, 119, 198, 0.25) !important;
+        color: #e8e8e8 !important;
+        padding: 1.1rem 1.5rem !important;
+        border-radius: 1.5rem 1.5rem 0.5rem 1.5rem !important;
         max-width: 75% !important;
-        font-size: 0.95rem !important;
-        line-height: 1.6 !important;
-        box-shadow: none !important;
+        font-size: 0.975rem !important;
+        line-height: 1.65 !important;
+        box-shadow: 0 4px 12px rgba(120, 119, 198, 0.08), 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+        backdrop-filter: blur(8px) !important;
+        transition: all 0.3s ease !important;
     }
     
-    /* Assistant messages - clean, professional with subtle background */
+    [data-testid="user"] > div:hover {
+        border-color: rgba(120, 119, 198, 0.35) !important;
+        box-shadow: 0 6px 16px rgba(120, 119, 198, 0.12), 0 3px 6px rgba(0, 0, 0, 0.2) !important;
+        transform: translateY(-1px) !important;
+    }
+    
+    /* Assistant messages - premium card design with gradient border */
     [data-testid="assistant"] {
         display: flex;
         justify-content: flex-start;
     }
     
     [data-testid="assistant"] > div {
-        background: rgba(255, 255, 255, 0.02) !important;
-        color: #e5e5e5 !important;
-        padding: 1.5rem !important;
-        border-radius: 1rem !important;
-        max-width: 85% !important;
-        font-size: 0.95rem !important;
-        line-height: 1.7 !important;
-        border: 1px solid rgba(255, 255, 255, 0.05) !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+        background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 15, 30, 0.98) 100%) !important;
+        color: #e8e8e8 !important;
+        padding: 2rem !important;
+        border-radius: 1.5rem !important;
+        max-width: 90% !important;
+        font-size: 0.975rem !important;
+        line-height: 1.75 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+        position: relative !important;
+        overflow: hidden !important;
+        backdrop-filter: blur(12px) !important;
+        transition: all 0.3s ease !important;
     }
     
-    /* ==================== MESSAGE CONTENT STYLING ==================== */
+    /* Subtle gradient overlay on assistant messages */
+    [data-testid="assistant"] > div::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(120, 119, 198, 0.5), transparent);
+        opacity: 0.6;
+    }
+    
+    [data-testid="assistant"] > div:hover {
+        border-color: rgba(255, 255, 255, 0.12) !important;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+        transform: translateY(-2px) !important;
+    }
+    
+    /* ==================== MESSAGE CONTENT STYLING - ENHANCED TYPOGRAPHY ==================== */
     .stMarkdown {
-        color: #e5e5e5 !important;
+        color: #e8e8e8 !important;
     }
     
     .stMarkdown p {
-        margin-bottom: 1rem !important;
-        line-height: 1.7 !important;
+        margin-bottom: 1.25rem !important;
+        line-height: 1.8 !important;
+        color: #e0e0e0 !important;
     }
     
     .stMarkdown ul, .stMarkdown ol {
-        margin: 1rem 0 !important;
-        padding-left: 1.5rem !important;
+        margin: 1.25rem 0 !important;
+        padding-left: 1.75rem !important;
     }
     
     .stMarkdown li {
-        margin-bottom: 0.75rem !important;
-        line-height: 1.7 !important;
+        margin-bottom: 0.85rem !important;
+        line-height: 1.75 !important;
+        color: #d8d8d8 !important;
     }
     
     .stMarkdown strong {
         font-weight: 600 !important;
         color: #ffffff !important;
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.15) !important;
     }
     
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
         color: #ffffff !important;
         font-weight: 600 !important;
-        margin-top: 1.5rem !important;
-        margin-bottom: 1rem !important;
+        margin-top: 2rem !important;
+        margin-bottom: 1.25rem !important;
+        letter-spacing: -0.02em !important;
+    }
+    
+    .stMarkdown h2 {
+        font-size: 1.4rem !important;
+        background: linear-gradient(135deg, #ffffff 0%, #c8c8c8 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+    }
+    
+    .stMarkdown h3 {
+        font-size: 1.15rem !important;
+        color: #f0f0f0 !important;
     }
     
     .stMarkdown hr {
-        margin: 2rem 0 !important;
+        margin: 2.5rem 0 !important;
         border: none !important;
-        border-top: 1px solid #2a2a2a !important;
+        height: 1px !important;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent) !important;
     }
     
     .stMarkdown code {
-        background: #1a1a1a !important;
-        color: #a8a8a8 !important;
-        padding: 0.2rem 0.5rem !important;
-        border-radius: 0.375rem !important;
-        font-size: 0.875rem !important;
+        background: rgba(20, 20, 35, 0.8) !important;
+        color: #b8b8d8 !important;
+        padding: 0.25rem 0.6rem !important;
+        border-radius: 0.5rem !important;
+        font-size: 0.9rem !important;
         font-family: 'SF Mono', 'Monaco', 'Courier New', monospace !important;
-        border: 1px solid #2a2a2a !important;
+        border: 1px solid rgba(120, 119, 198, 0.2) !important;
+        font-weight: 500 !important;
     }
     
-    /* ==================== STATUS INDICATORS - MINIMAL ==================== */
+    /* Enhanced blockquote styling */
+    .stMarkdown blockquote {
+        border-left: 3px solid rgba(120, 119, 198, 0.5) !important;
+        padding-left: 1.5rem !important;
+        margin: 1.5rem 0 !important;
+        color: #c0c0c0 !important;
+        font-style: italic !important;
+        background: rgba(120, 119, 198, 0.03) !important;
+        padding: 1rem 1.5rem !important;
+        border-radius: 0.5rem !important;
+    }
+    
+    /* ==================== STATUS INDICATORS - REFINED ==================== */
     .stChatMessage [data-testid="stInfo"] {
-        background: transparent !important;
-        border: none !important;
-        color: #888888 !important;
-        padding: 1rem 0 !important;
-        font-size: 0.9rem !important;
-        font-weight: 300 !important;
+        background: rgba(120, 119, 198, 0.08) !important;
+        border: 1px solid rgba(120, 119, 198, 0.15) !important;
+        border-radius: 0.75rem !important;
+        color: #a8a8a8 !important;
+        padding: 1rem 1.25rem !important;
+        font-size: 0.925rem !important;
+        font-weight: 400 !important;
+        backdrop-filter: blur(8px) !important;
     }
     
 
     
-    /* ==================== INPUT AREA - MODERN & INVITING ==================== */
+    /* ==================== INPUT AREA - PREMIUM GLASS MORPHISM ==================== */
     .stChatInputContainer {
-        background: linear-gradient(135deg, rgba(30, 30, 30, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 1.5rem !important;
-        padding: 0.75rem 1.25rem !important;
-        transition: all 0.3s ease !important;
-        backdrop-filter: blur(10px) !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+        background: linear-gradient(135deg, rgba(35, 35, 60, 0.85) 0%, rgba(25, 25, 45, 0.9) 100%) !important;
+        border: 1px solid rgba(120, 119, 198, 0.25) !important;
+        border-radius: 1.75rem !important;
+        padding: 0.85rem 1.5rem !important;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        backdrop-filter: blur(16px) !important;
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            0 2px 8px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+        position: relative !important;
+    }
+    
+    /* Glow effect on focus */
+    .stChatInputContainer::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(135deg, rgba(120, 119, 198, 0.4), rgba(255, 107, 107, 0.2));
+        border-radius: 1.85rem;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        z-index: -1;
+    }
+    
+    .stChatInputContainer:focus-within::before {
+        opacity: 1;
     }
     
     .stChatInputContainer:focus-within {
-        border-color: rgba(255, 255, 255, 0.2) !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(255, 255, 255, 0.08) !important;
-        transform: translateY(-1px) !important;
+        border-color: rgba(120, 119, 198, 0.45) !important;
+        box-shadow: 
+            0 12px 48px rgba(120, 119, 198, 0.15),
+            0 4px 16px rgba(0, 0, 0, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+        transform: translateY(-2px) scale(1.005) !important;
     }
     
     .stChatInput textarea {
         background: transparent !important;
-        color: #e5e5e5 !important;
-        font-size: 0.95rem !important;
-        line-height: 1.5 !important;
+        color: #f0f0f0 !important;
+        font-size: 0.975rem !important;
+        line-height: 1.6 !important;
         border: none !important;
-        caret-color: #ffffff !important;
+        caret-color: rgba(120, 119, 198, 0.8) !important;
+        font-weight: 400 !important;
     }
     
     .stChatInput textarea::placeholder {
-        color: #777777 !important;
-        font-weight: 300 !important;
+        color: #888888 !important;
+        font-weight: 400 !important;
+        opacity: 0.8 !important;
     }
     
     .stChatInput textarea:focus {
@@ -241,41 +362,74 @@ MINIMAL_CSS = """
         box-shadow: none !important;
     }
     
-    /* ==================== SCROLLBAR - MINIMAL ==================== */
+    /* Send button enhancement (if visible) */
+    .stChatInputContainer button {
+        background: linear-gradient(135deg, rgba(120, 119, 198, 0.2), rgba(120, 119, 198, 0.3)) !important;
+        border: 1px solid rgba(120, 119, 198, 0.4) !important;
+        border-radius: 0.75rem !important;
+        color: #ffffff !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stChatInputContainer button:hover {
+        background: linear-gradient(135deg, rgba(120, 119, 198, 0.35), rgba(120, 119, 198, 0.45)) !important;
+        border-color: rgba(120, 119, 198, 0.6) !important;
+        transform: scale(1.05) !important;
+    }
+    
+    /* ==================== SCROLLBAR - SLEEK & MODERN ==================== */
     ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 8px;
+        height: 8px;
     }
     
     ::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: #2a2a2a;
+        background: rgba(0, 0, 0, 0.2);
         border-radius: 10px;
     }
     
-    ::-webkit-scrollbar-thumb:hover {
-        background: #3a3a3a;
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, rgba(120, 119, 198, 0.4), rgba(120, 119, 198, 0.6));
+        border-radius: 10px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
     }
     
-    /* ==================== LINKS ==================== */
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, rgba(120, 119, 198, 0.6), rgba(120, 119, 198, 0.8));
+    }
+    
+    /* ==================== LINKS - ELEGANT UNDERLINE ==================== */
     a {
-        color: #ffffff !important;
-        text-decoration: underline !important;
-        text-decoration-color: #4a4a4a !important;
+        color: rgba(168, 168, 255, 0.95) !important;
+        text-decoration: none !important;
+        border-bottom: 1px solid rgba(168, 168, 255, 0.3) !important;
+        transition: all 0.25s ease !important;
+        padding-bottom: 1px !important;
     }
     
     a:hover {
-        text-decoration-color: #ffffff !important;
+        color: rgba(200, 200, 255, 1) !important;
+        border-bottom-color: rgba(168, 168, 255, 0.8) !important;
+        text-shadow: 0 0 8px rgba(168, 168, 255, 0.3) !important;
     }
     
-    /* ==================== ANIMATIONS ==================== */
+    /* ==================== ANIMATIONS - SMOOTH & SOPHISTICATED ==================== */
     @keyframes fadeIn {
         from {
             opacity: 0;
-            transform: translateY(8px);
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
         }
         to {
             opacity: 1;
@@ -286,22 +440,22 @@ MINIMAL_CSS = """
     @keyframes slideInRight {
         from {
             opacity: 0;
-            transform: translateX(20px);
+            transform: translateX(30px) scale(0.95);
         }
         to {
             opacity: 1;
-            transform: translateX(0);
+            transform: translateX(0) scale(1);
         }
     }
     
     @keyframes slideInLeft {
         from {
             opacity: 0;
-            transform: translateX(-20px);
+            transform: translateX(-30px) scale(0.95);
         }
         to {
             opacity: 1;
-            transform: translateX(0);
+            transform: translateX(0) scale(1);
         }
     }
     
@@ -310,39 +464,51 @@ MINIMAL_CSS = """
             opacity: 1;
         }
         50% {
-            opacity: 0.5;
+            opacity: 0.4;
         }
     }
     
     @keyframes typing {
         0%, 100% {
-            opacity: 0.3;
+            opacity: 0.25;
+            transform: scale(0.9);
         }
         50% {
             opacity: 1;
+            transform: scale(1.1);
         }
     }
     
-    /* Message animations */
+    @keyframes shimmer {
+        0% {
+            background-position: -1000px 0;
+        }
+        100% {
+            background-position: 1000px 0;
+        }
+    }
+    
+    /* Message animations with stagger effect */
     .stChatMessage {
-        animation: fadeIn 0.3s ease-out;
+        animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     [data-testid="user"] {
-        animation: slideInRight 0.4s ease-out;
+        animation: slideInRight 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     
     [data-testid="assistant"] {
-        animation: slideInLeft 0.4s ease-out;
+        animation: slideInLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     
-    /* Typing indicator animation */
+    /* Typing indicator with elegant animation */
     .typing-indicator {
-        animation: pulse 1.5s ease-in-out infinite;
+        animation: pulse 1.8s ease-in-out infinite;
     }
     
     .typing-dot {
-        animation: typing 1.4s infinite;
+        animation: typing 1.6s infinite ease-in-out;
+        display: inline-block;
     }
     
     .typing-dot:nth-child(2) {
@@ -353,20 +519,51 @@ MINIMAL_CSS = """
         animation-delay: 0.4s;
     }
     
-    /* ==================== RESPONSIVE ==================== */
+    /* ==================== RESPONSIVE DESIGN - MOBILE OPTIMIZED ==================== */
     @media (max-width: 768px) {
         .block-container {
-            padding-top: 2rem !important;
+            padding-top: 1.5rem !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
         }
         
         h1 {
-            font-size: 1.5rem !important;
+            font-size: 1.75rem !important;
+        }
+        
+        [data-testid="stCaptionContainer"] {
+            font-size: 0.925rem !important;
         }
         
         [data-testid="user"] > div,
         [data-testid="assistant"] > div {
-            max-width: 90% !important;
+            max-width: 95% !important;
+            padding: 1rem 1.25rem !important;
         }
+        
+        [data-testid="assistant"] > div {
+            padding: 1.5rem !important;
+        }
+    }
+    
+    /* ==================== WELCOME CARD STYLING ==================== */
+    .welcome-card {
+        background: linear-gradient(135deg, rgba(26, 26, 46, 0.6) 0%, rgba(15, 15, 30, 0.8) 100%) !important;
+        border: 1px solid rgba(120, 119, 198, 0.2) !important;
+        border-radius: 1.5rem !important;
+        padding: 2rem !important;
+        margin: 2rem 0 !important;
+        text-align: center !important;
+        backdrop-filter: blur(12px) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+        animation: fadeIn 0.8s ease-out 0.4s both !important;
+    }
+    
+    .welcome-card:hover {
+        border-color: rgba(120, 119, 198, 0.35) !important;
+        box-shadow: 0 12px 48px rgba(120, 119, 198, 0.15) !important;
+        transform: translateY(-2px) !important;
+        transition: all 0.4s ease !important;
     }
 </style>
 """
@@ -571,22 +768,45 @@ def main() -> None:
     # Apply professional styling
     st.markdown(MINIMAL_CSS, unsafe_allow_html=True)
 
-    # Professional header with emoji and description
-    st.title("💼 HR Assistant")
-    st.caption("Your trusted companion for HR policies, benefits, and workplace guidance. Ask me anything!")
+    # Professional header with enhanced styling and visible logo
+    st.markdown("""
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+        <div style="
+            width: 56px; 
+            height: 56px; 
+            background: linear-gradient(135deg, #7877c6 0%, #9b8fd9 100%);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(120, 119, 198, 0.3);
+        ">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 6H12L10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6Z" fill="white" opacity="0.9"/>
+                <path d="M12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z" fill="white"/>
+            </svg>
+        </div>
+        <div>
+            <h1 style="margin: 0 !important; padding: 0 !important;">HR Assistant</h1>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("Your intelligent companion for HR policies, benefits, and workplace guidance — available 24/7")
     
-    # Add a subtle welcome message for first-time users
+    # Enhanced welcome message for first-time users
     if len(st.session_state.get("history", [])) == 0:
         st.markdown("""
-        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); 
-                    border-radius: 1rem; padding: 1.5rem; margin: 2rem 0; text-align: center;">
-            <div style="font-size: 1.1rem; color: #ffffff; font-weight: 500; margin-bottom: 0.75rem;">
-                👋 Welcome! How can I help you today?
+        <div class="welcome-card">
+            <div style="font-size: 2.5rem; margin-bottom: 1rem;">👋</div>
+            <div style="font-size: 1.2rem; color: #ffffff; font-weight: 600; margin-bottom: 1rem;">
+                Welcome! How can I assist you today?
             </div>
-            <div style="font-size: 0.9rem; color: #999999; line-height: 1.6;">
-                I can answer questions about company policies, leave requests, benefits, procedures, and more.<br/>
-                Try asking: <span style="color: #cccccc;">"What is the sick leave policy?"</span> or 
-                <span style="color: #cccccc;">"How do I request vacation?"</span>
+            <div style="font-size: 0.975rem; color: #b8b8b8; line-height: 1.7; max-width: 600px; margin: 0 auto;">
+                I'm here to help with company policies, leave requests, benefits, procedures, and more.<br/>
+                <span style="margin-top: 1rem; display: inline-block;">
+                    Try asking: <span style="color: #d8d8d8; font-weight: 500;">"What is the sick leave policy?"</span><br/>
+                    or <span style="color: #d8d8d8; font-weight: 500;">"How do I request vacation time?"</span>
+                </span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -627,27 +847,44 @@ def main() -> None:
                 del st.session_state.pending_response
                 _rerun()
         else:
-            # Show animated typing indicator while processing
+            # Show professional animated thinking indicator while processing
             elapsed = time.time() - pending.get("start_time", time.time())
             if elapsed < 8:
-                status = "Thinking..."
+                status = "Analyzing your request..."
+                progress_width = "25%"
             elif elapsed < 15:
-                status = "Searching policies..."
+                status = "Searching policy documents..."
+                progress_width = "60%"
             else:
-                status = "Crafting response..."
+                status = "Preparing your response..."
+                progress_width = "85%"
 
             with st.chat_message("assistant"):
-                typing_html = f"""
-                <div style="display: flex; align-items: center; gap: 0.5rem; padding: 1rem 0;">
-                    <div style="display: flex; gap: 0.3rem;">
-                        <div class="typing-dot" style="width: 8px; height: 8px; background: #888888; border-radius: 50%;"></div>
-                        <div class="typing-dot" style="width: 8px; height: 8px; background: #888888; border-radius: 50%;"></div>
-                        <div class="typing-dot" style="width: 8px; height: 8px; background: #888888; border-radius: 50%;"></div>
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 15, 30, 0.98) 100%); border: 1px solid rgba(120, 119, 198, 0.2); border-radius: 16px; padding: 2rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);">
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #7877c6 0%, #9b8fd9 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; animation: pulse 2s ease-in-out infinite; box-shadow: 0 4px 12px rgba(120, 119, 198, 0.4);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="white" stroke-width="2" fill="none" opacity="0.8"/>
+                                <path d="M12 6v6l4 2" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+                            </svg>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="color: #e8e8e8; font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem;">
+                                {status}
+                            </div>
+                            <div style="width: 100%; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; overflow: hidden;">
+                                <div style="width: {progress_width}; height: 100%; background: linear-gradient(90deg, #7877c6 0%, #9b8fd9 100%); border-radius: 2px; transition: width 0.3s ease; box-shadow: 0 0 10px rgba(120, 119, 198, 0.5);"></div>
+                            </div>
+                        </div>
                     </div>
-                    <span style="color: #888888; font-size: 0.9rem; font-weight: 300; margin-left: 0.5rem;">{status}</span>
+                    <div style="display: flex; gap: 0.4rem; justify-content: center;">
+                        <div class="typing-dot" style="width: 8px; height: 8px; background: rgba(120, 119, 198, 0.6); border-radius: 50%;"></div>
+                        <div class="typing-dot" style="width: 8px; height: 8px; background: rgba(120, 119, 198, 0.6); border-radius: 50%;"></div>
+                        <div class="typing-dot" style="width: 8px; height: 8px; background: rgba(120, 119, 198, 0.6); border-radius: 50%;"></div>
+                    </div>
                 </div>
-                """
-                st.markdown(typing_html, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
             time.sleep(1)
             _rerun()
 

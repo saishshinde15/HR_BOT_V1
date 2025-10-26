@@ -1,14 +1,25 @@
-# 🤖 HR Bot - Production-Ready HR Assistant
+# 🤖 HR Bot v2.5 - Production-Ready HR Assistant
 
-A production-grade, single-agent HR assistant powered by **CrewAI**, featuring:
+A production-grade, single-agent HR assistant powered by **CrewAI** and **Amazon Bedrock**, featuring:
 
+- 🎨 **Professional Streamlit UI** with premium dark theme and elegant animations
 - 🔍 **Hybrid RAG Search** (BM25 + Vector) optimized for documents with tables
 - 🌐 **API Deck Integration** for unified access to HR platforms (SAP, Zoho People, BambooHR, Workday, etc.)
-- ⚡ **Gemini LLM** for low-cost, high-performance responses
+- ⚡ **Amazon Bedrock Nova Micro** for ultra-low-cost AI responses
 - 🚀 **Intelligent Caching** for low-latency retrieval
 - 📊 **Table-Aware Processing** for structured HR documents
+- 🧠 **Long-term Memory** for contextual conversations
+- 🎯 **Zero Hallucination** with strict factual accuracy controls
 
 ## 🎯 Features
+
+### 🎨 Professional Streamlit Web UI
+- **Premium Dark Theme**: Beautiful gradient backgrounds with purple accents
+- **Elegant Animations**: Smooth loading indicators and transitions
+- **Real-time Status**: See exactly what the agent is doing (Analyzing → Searching → Preparing)
+- **Conversation Memory**: Full chat history with context awareness
+- **Mobile Responsive**: Works seamlessly on all devices
+- **Professional Design**: Enterprise-grade UI suitable for corporate environments
 
 ### Hybrid RAG Tool
 - **BM25 (Lexical Search)**: Excellent for exact keyword matching, policy names, and specific terms
@@ -36,7 +47,8 @@ A production-grade, single-agent HR assistant powered by **CrewAI**, featuring:
 
 - Python 3.10 to 3.13
 - [UV](https://docs.astral.sh/uv/) package manager
-- Google API Key (for Gemini)
+- AWS Account with Bedrock access
+- AWS Access Key ID and Secret Access Key
 - API Deck credentials (optional, for HR system integration)
 
 ### Installation
@@ -67,9 +79,14 @@ cp .env.example .env
 
 **Required:**
 ```bash
-# Get from: https://makersuite.google.com/app/apikey
-GOOGLE_API_KEY=your_google_api_key_here
-GEMINI_MODEL=gemini/gemini-1.5-flash
+# AWS Bedrock Configuration
+AWS_ACCESS_KEY_ID=your_aws_access_key_here
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key_here
+AWS_REGION=us-east-1  # or your preferred region
+
+# Model Configuration
+LLM_MODEL=bedrock/us.amazon.nova-micro-v1:0
+EMBEDDING_MODEL=bedrock/amazon.titan-embed-text-v2:0
 ```
 
 **Optional (for HR system integration):**
@@ -97,7 +114,45 @@ hr_bot_setup
 
 ## 📖 Usage
 
-### Single Query Mode
+### 🎨 Web UI (Recommended)
+
+Launch the beautiful Streamlit web interface:
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run Streamlit app
+streamlit run src/hr_bot/ui/app.py
+```
+
+Or using Python module:
+```bash
+python -m streamlit run src/hr_bot/ui/app.py
+```
+
+The app will open automatically in your browser at **http://localhost:8501**
+
+**Features:**
+- 💬 Interactive chat interface
+- 🧠 Full conversation memory
+- ⚡ Real-time status updates
+- 📱 Mobile-friendly design
+- 🎨 Professional dark theme
+- 📊 Progress indicators
+
+**Pro tip:** For production deployment, use:
+```bash
+streamlit run src/hr_bot/ui/app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+```
+
+---
+
+### 💻 Command Line Interface
+
+For quick queries without the UI:
+
+#### Single Query Mode
 
 ```bash
 hr_bot "What is the maternity leave policy?"
@@ -325,6 +380,23 @@ Suggestions:
 - Check API quota at [Google AI Studio](https://makersuite.google.com)
 - Ensure billing is enabled if using paid tier
 
+### Issue: "AWS Bedrock errors"
+- Verify AWS credentials in `.env`
+- Ensure Bedrock access is enabled in your AWS account
+- Check region supports Nova Micro model
+- Verify IAM permissions for Bedrock access
+
+### Issue: "Streamlit not starting"
+- Activate virtual environment: `source .venv/bin/activate`
+- Install Streamlit: `uv pip install streamlit`
+- Check port 8501 is not in use: `lsof -i :8501`
+- Try different port: `streamlit run src/hr_bot/ui/app.py --server.port=8502`
+
+### Issue: "UI showing raw HTML"
+- Clear browser cache
+- Hard refresh: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)
+- Restart Streamlit server
+
 ### Issue: "Slow responses"
 - First query is slower (building indexes)
 - Enable caching: `ENABLE_CACHE=true`
@@ -334,9 +406,36 @@ Suggestions:
 ## 📚 Documentation
 
 - [CrewAI Documentation](https://docs.crewai.com)
-- [Gemini API Documentation](https://ai.google.dev/docs)
+- [Amazon Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
+- [Streamlit Documentation](https://docs.streamlit.io)
 - [API Deck Documentation](https://developers.apideck.com/docs)
 - [LangChain Documentation](https://python.langchain.com/docs/get_started/introduction)
+
+---
+
+## 📝 Changelog
+
+### Version 2.5 (Current)
+- ✨ **NEW**: Professional Streamlit web UI with premium dark theme
+- ✨ **NEW**: Elegant loading animations with progress indicators
+- ✨ **NEW**: Real-time agent status updates (Analyzing → Searching → Preparing)
+- ✨ **NEW**: Full conversation memory and context awareness
+- 🔧 **IMPROVED**: Enhanced factual accuracy with strict hallucination prevention
+- 🔧 **IMPROVED**: Better placeholder handling in policy documents
+- 🎨 **DESIGN**: Purple gradient theme with glass morphism effects
+- 🎨 **DESIGN**: Mobile-responsive layout
+- 🐛 **FIXED**: HTML rendering issues in loading indicator
+- 🐛 **FIXED**: Logo visibility on dark backgrounds
+
+### Version 2.0
+- 🚀 Initial production release
+- 🤖 CrewAI agent with Amazon Bedrock Nova Micro
+- 🔍 Hybrid RAG (BM25 + Vector search)
+- 🌐 API Deck HR system integration
+- 💾 Long-term memory with SQLite storage
+- 📊 Table-aware document processing
+
+---
 
 ## 🤝 Contributing
 
@@ -355,4 +454,28 @@ For questions or issues:
 
 ---
 
-**Built with ❤️ using CrewAI, Gemini, and API Deck**
+**Built with ❤️ using CrewAI, Amazon Bedrock, and Streamlit | Version: 2.5 | License: MIT**
+
+---
+
+<div align="center">
+
+### 💻 Crafted with Code & Coffee ☕
+
+```
+  ____    _    ___ ____  _   _ 
+ / ___|  / \  |_ _/ ___|| | | |
+ \___ \ / _ \  | |\___ \| |_| |
+  ___) / ___ \ | | ___) |  _  |
+ |____/_/   \_\___|____/|_| |_|
+```
+
+**Designed & Coded by [Saish](https://github.com/saishshinde15)**
+
+*Turning complex HR workflows into elegant solutions* ✨
+
+[![GitHub](https://img.shields.io/badge/GitHub-saishshinde15-181717?style=flat&logo=github)](https://github.com/saishshinde15)
+
+</div>
+
+**Version:** 2.5 | **License:** MIT | **Powered by:** AWS Bedrock Nova Micro

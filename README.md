@@ -54,19 +54,37 @@ A production-grade, single-agent HR assistant powered by **CrewAI** and **Amazon
 ### Installation
 
 1. **Install UV** (if not already installed):
+
+**macOS/Linux:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Windows:**
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+**Or via pip:**
 ```bash
 pip install uv
 ```
 
-2. **Navigate to the project directory**:
+2. **Clone the repository** (if not already done):
 ```bash
-cd hr_bot
+git clone https://github.com/saishshinde15/HR_BOT_V1.git
+cd HR_BOT_V1/hr_bot
 ```
 
-3. **Install dependencies**:
+3. **Install dependencies using UV**:
 ```bash
-crewai install
+# Sync all dependencies from pyproject.toml
+uv sync
+
+# This creates a virtual environment and installs all packages
 ```
+
+**Note**: UV automatically creates and manages a `.venv` virtual environment for you.
 
 ### Configuration
 
@@ -107,9 +125,13 @@ data/
 └── ...
 ```
 
-4. **Run setup check**:
+4. **Verify installation**:
 ```bash
-hr_bot_setup
+# Check UV environment
+uv run python --version
+
+# Verify CrewAI installation
+uv run python -c "import crewai; print(f'CrewAI version: {crewai.__version__}')"
 ```
 
 ## 📖 Usage
@@ -119,16 +141,21 @@ hr_bot_setup
 Launch the beautiful Streamlit web interface:
 
 ```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Run Streamlit app
-streamlit run src/hr_bot/ui/app.py
+# Run with UV (recommended - no activation needed)
+uv run python -m streamlit run src/hr_bot/ui/app.py
 ```
 
-Or using Python module:
+**Alternative methods:**
+
+Using activated virtual environment:
 ```bash
-python -m streamlit run src/hr_bot/ui/app.py
+# Activate UV's virtual environment
+source .venv/bin/activate  # macOS/Linux
+# OR
+.venv\Scripts\activate     # Windows
+
+# Run Streamlit
+streamlit run src/hr_bot/ui/app.py
 ```
 
 The app will open automatically in your browser at **http://localhost:8501**
@@ -145,7 +172,7 @@ The app will open automatically in your browser at **http://localhost:8501**
 
 **Pro tip:** For production deployment, use:
 ```bash
-streamlit run src/hr_bot/ui/app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+uv run python -m streamlit run src/hr_bot/ui/app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
 ```
 
 ---
@@ -157,22 +184,43 @@ For quick queries without the UI:
 #### Single Query Mode
 
 ```bash
-hr_bot "What is the maternity leave policy?"
+# Using UV (recommended)
+uv run python -m hr_bot.main "What is the maternity leave policy?"
+
+# Or use the crew kickoff directly
+uv run python run_crew.py
 ```
 
-Or run without arguments and enter your query:
+#### Interactive Mode
+
+For continuous conversations with memory:
+
 ```bash
-hr_bot
+# Run the crew in interactive mode
+uv run python -c "from hr_bot.crew import HrBot; bot = HrBot(); crew = bot.crew(); print('HR Bot ready!'); import sys; [crew.kickoff(inputs={'query': input('\n> ')}) for _ in iter(int, 1)]"
 ```
 
-### Interactive Mode
-
-For continuous conversations:
+Or create a simple script for easier interaction:
 ```bash
-hr_bot_interactive
-```
+# Save as interactive.py
+from hr_bot.crew import HrBot
 
-Type your questions and get responses in real-time. Type `exit` to quit.
+bot = HrBot()
+crew = bot.crew()
+
+print("🤖 HR Bot Interactive Mode")
+print("Type 'exit' to quit\n")
+
+while True:
+    query = input("> ")
+    if query.lower() in ['exit', 'quit', 'q']:
+        break
+    
+    result = crew.kickoff(inputs={'query': query, 'context': ''})
+    print(f"\n{result.raw}\n")
+
+# Then run: uv run python interactive.py
+```
 
 ### Example Queries
 
@@ -225,7 +273,7 @@ Generate responses for common queries before deployment:
 
 ```bash
 # Pre-cache 30 most common HR questions
-python prewarm_cache.py
+uv run python prewarm_cache.py
 
 # Output:
 # 🔥 CACHE PRE-WARMING STARTED
@@ -241,13 +289,13 @@ python prewarm_cache.py
 
 ```bash
 # View cache statistics
-python manage_cache.py stats
+uv run python manage_cache.py stats
 
 # Clear expired entries
-python manage_cache.py clear-expired
+uv run python manage_cache.py clear-expired
 
 # Clear all cache
-python manage_cache.py clear
+uv run python manage_cache.py clear
 ```
 
 ### **Configure Cache Settings**
@@ -329,7 +377,53 @@ hr_bot/
 └── README.md                   # This file
 ```
 
-## 🔧 Advanced Configuration
+## � UV Quick Reference
+
+UV is a fast Python package manager that simplifies dependency management:
+
+### Common UV Commands
+
+```bash
+# Install/sync all dependencies
+uv sync
+
+# Add a new package
+uv add package-name
+
+# Remove a package
+uv remove package-name
+
+# Run a Python script with UV environment
+uv run python script.py
+
+# Run a Python module
+uv run python -m module_name
+
+# Update all dependencies
+uv lock --upgrade
+
+# Show installed packages
+uv pip list
+
+# Create a new virtual environment
+uv venv
+
+# Activate the virtual environment (if needed)
+source .venv/bin/activate  # macOS/Linux
+.venv\Scripts\activate     # Windows
+```
+
+### Why UV?
+
+- ⚡ **10-100x faster** than pip
+- 🔒 **Reliable**: Lock file ensures reproducible installs
+- 🎯 **Simple**: Single command to sync everything
+- 🔄 **Auto-manages**: Virtual environments created automatically
+- 📦 **Compatible**: Works with pip, pyproject.toml, requirements.txt
+
+---
+
+## �🔧 Advanced Configuration
 
 ### RAG Parameters
 
@@ -394,22 +488,49 @@ GEMINI_MODEL=gemini/gemini-1.5-flash      # Fast, low-cost
 
 ## 🧪 Development
 
-### Training the Agent
+### Running Tests
 
 ```bash
-crewai train <n_iterations> <filename>
+# Run all tests
+uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_rag_agent.py
+
+# Run with verbose output
+uv run pytest -v
+
+# Run with coverage
+uv run pytest --cov=src/hr_bot
 ```
 
-### Testing
+### Training the Agent (CrewAI)
+
+Train the agent to improve responses over time:
 
 ```bash
-crewai test <n_iterations> <eval_llm>
+# Train for 5 iterations
+uv run python -c "from hr_bot.crew import HrBot; bot = HrBot(); crew = bot.crew(); crew.train(n_iterations=5, filename='training_data.pkl')"
 ```
 
-### Replay Tasks
+### Testing Agent Performance
 
 ```bash
-crewai replay <task_id>
+# Run evaluation on test dataset
+uv run python -m hr_bot.eval.run_eval
+```
+
+### Code Quality
+
+```bash
+# Format code with black
+uv run black src/
+
+# Lint with ruff
+uv run ruff check src/
+
+# Type checking with mypy
+uv run mypy src/
 ```
 
 ## ✅ Evaluation (RAG & Agent)
@@ -419,13 +540,23 @@ You can automatically build a lightweight evaluation dataset from the HR policy 
 ### 1. Generate Dataset
 Creates `data/eval/eval_dataset.jsonl` with heuristic Q/A snippet pairs.
 ```bash
-uv run generate_eval
+uv run python -m hr_bot.eval.generate_dataset
 ```
 
 ### 2. Run Evaluation
 Runs hybrid retriever and agent over the dataset; writes metrics to `data/eval/metrics.json`.
 ```bash
-uv run eval
+uv run python -m hr_bot.eval.run_eval
+```
+
+### 3. Run Advanced RAGAS Evaluation
+For more sophisticated metrics including faithfulness and answer relevance:
+```bash
+# Run RAGAS evaluation
+uv run python -m hr_bot.eval.ragas_eval
+
+# Run production RAGAS evaluation
+uv run python -m hr_bot.eval.ragas_production_eval
 ```
 
 ### 3. Metrics Reported
@@ -468,10 +599,11 @@ Suggestions:
 - Verify IAM permissions for Bedrock access
 
 ### Issue: "Streamlit not starting"
-- Activate virtual environment: `source .venv/bin/activate`
-- Install Streamlit: `uv pip install streamlit`
+- Ensure UV is installed: `uv --version`
+- Run with UV: `uv run python -m streamlit run src/hr_bot/ui/app.py`
 - Check port 8501 is not in use: `lsof -i :8501`
-- Try different port: `streamlit run src/hr_bot/ui/app.py --server.port=8502`
+- Try different port: `uv run python -m streamlit run src/hr_bot/ui/app.py --server.port=8502`
+- Check dependencies: `uv sync`
 
 ### Issue: "UI showing raw HTML"
 - Clear browser cache

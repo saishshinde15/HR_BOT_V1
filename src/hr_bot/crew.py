@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from hr_bot.tools.hybrid_rag_tool import HybridRAGTool
+from hr_bot.utils.cache import ResponseCache
 
 
 def remove_document_evidence_section(text: str) -> str:
@@ -82,14 +83,19 @@ class HrBot():
         llm_kwargs = {
             "model": os.getenv("BEDROCK_MODEL", "bedrock/us.amazon.nova-micro-v1:0"),
             "temperature": 0.7,  # Higher temperature for more natural, conversational responses
+            "max_tokens": 2000,  # Ensure model completes responses after tool use
         }
         if aws_region:
             llm_kwargs["aws_region_name"] = aws_region
 
         self.llm = LLM(**llm_kwargs)
         
-        # Initialize tools
-        self.hybrid_rag_tool = HybridRAGTool(data_dir="data")
+        # Resolve project root once for downstream paths
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        
+        # Initialize tools with absolute data directory so document loading works in UI/CLI contexts
+        data_dir_path = os.path.join(project_root, "data")
+        self.hybrid_rag_tool = HybridRAGTool(data_dir=data_dir_path)
 
         # Persist AWS configuration for downstream components (e.g., memory embedder)
         self.aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -114,7 +120,6 @@ class HrBot():
         self.embedder_config = embedder_config if embedder_config["config"] else None
 
         # Configure long-term memory storage
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         self.memory_storage_dir = os.path.join(project_root, "storage")
         os.makedirs(self.memory_storage_dir, exist_ok=True)
         self.memory_db_path = os.path.join(self.memory_storage_dir, "long_term_memory.db")
@@ -123,6 +128,191 @@ class HrBot():
                 db_path=self.memory_db_path
             )
         )
+        
+        # Initialize semantic response caching with 60% similarity threshold
+        cache_ttl_hours = int(os.getenv("CACHE_TTL_HOURS", "72"))
+        cache_similarity = float(os.getenv("CACHE_SIMILARITY_THRESHOLD", "0.60"))  # 60% default
+        self.response_cache = ResponseCache(
+            cache_dir=os.path.join(self.memory_storage_dir, "response_cache"),
+            ttl_hours=cache_ttl_hours,
+            max_memory_items=200,
+            similarity_threshold=cache_similarity
+        )
+        print(f"✅ Semantic caching enabled (TTL: {cache_ttl_hours}h, Similarity: {cache_similarity:.0%})")
+    
+    def query_with_cache(self, query: str, context: str = "") -> str:
+        """
+        Query the crew with aggressive caching for ultra-fast responses.
+        
+        Args:
+            query: User's question
+            context: Conversation context (optional)
+        
+        Returns:
+            Formatted response string
+        """
+        # Check cache first
+        cached_response = self.response_cache.get(query, context)
+        if cached_response:
+            print("⚡ CACHE HIT - Returning instant response!")
+            return cached_response
+        
+        small_talk_response = self._small_talk_response(query, context)
+        if small_talk_response:
+            print("💬 SMALL TALK - Skipping retrieval for conversational pleasantries.")
+            self.response_cache.set(query, small_talk_response, context)
+            return small_talk_response
+
+        # Cache miss - execute crew with full memory
+        print("🔄 CACHE MISS - Executing crew...")
+        inputs = {"query": query, "context": context}
+        result = self.crew().kickoff(inputs=inputs)
+        
+        # Format and cache response
+        response_text = str(result.raw) if hasattr(result, 'raw') else str(result)
+        formatted_response = remove_document_evidence_section(response_text)
+        
+        # Save to cache for future queries
+        self.response_cache.set(query, formatted_response, context)
+        
+        return formatted_response
+    
+    def get_cache_stats(self) -> dict:
+        """Get cache performance statistics"""
+        return self.response_cache.get_stats()
+
+    def _small_talk_response(self, query: str, context: str) -> Optional[str]:
+        """Return tailored responses for greetings, farewells, and similar small-talk."""
+        normalized = self._normalize_small_talk(query)
+        if not normalized:
+            return None
+
+        greetings = {
+            "hi",
+            "hello",
+            "hey",
+            "hi there",
+            "hello there",
+            "hey there",
+            "good morning",
+            "good afternoon",
+            "good evening",
+            "greetings",
+        }
+        gratitude = {
+            "thanks",
+            "thank you",
+            "thanks a lot",
+            "thank you so much",
+            "thanks so much",
+            "cool thanks",
+            "ok thanks",
+            "okay thanks",
+            "appreciate it",
+            "many thanks",
+        }
+        farewells = {
+            "bye",
+            "goodbye",
+            "see you",
+            "see you later",
+            "talk soon",
+            "take care",
+            "catch you later",
+        }
+        identity = {
+            "who are you",
+            "what are you",
+            "introduce yourself",
+            "tell me about you",
+            "who are you hr bot",
+        }
+
+        identity_key = normalized.rstrip("?")
+        if identity_key in identity:
+            return (
+                "I'm the company's HR policy assistant, ready to translate every guideline and benefit into clear, confident next steps for you."
+            )
+
+        # Skip if the message clearly contains a substantive question or keywords
+        if self._looks_like_question(normalized):
+            return None
+
+        if normalized in greetings:
+            return (
+                "Hello! I'm your HR companion, ready to unpack policies, benefits, and anything HR-related whenever you are."
+            )
+
+        if normalized in gratitude or (
+            ("thank" in normalized or "thanks" in normalized) and len(normalized.split()) <= 6
+        ):
+            return (
+                "You're very welcome! If another HR detail pops up, just say the word and I'll jump right back in."
+            )
+
+        if normalized in farewells:
+            return (
+                "Take care! Whenever you need clarity on HR policies or next steps, I'll be right here to help."
+            )
+
+        # Handle short greetings that include light extras (e.g., "hi there!", "hello hr bot")
+        for phrase in greetings:
+            if normalized.startswith(phrase) and len(normalized.split()) <= 5:
+                return (
+                    "Hi there! Whenever you're ready to chat HR policies or benefits, I'll guide you through every detail."
+                )
+
+        for phrase in farewells:
+            if normalized.startswith(phrase) and len(normalized.split()) <= 5:
+                return (
+                    "Sending you off with good vibes! Circle back anytime you want to explore HR topics together."
+                )
+
+        return None
+
+    def _normalize_small_talk(self, query: str) -> str:
+        """Lowercase, trim, and collapse whitespace for comparison."""
+        normalized = query.lower().strip()
+        normalized = re.sub(r"[^a-z0-9\s?]", "", normalized)
+        normalized = re.sub(r"\s+", " ", normalized)
+        return normalized
+
+    def _looks_like_question(self, normalized: str) -> bool:
+        """Determine if a message likely contains a substantive question."""
+        if not normalized:
+            return False
+
+        # If query mentions policy-related terms or has a question mark, treat as substantive
+        question_mark = "?" in normalized
+        policy_terms = [
+            "policy",
+            "leave",
+            "benefit",
+            "procedure",
+            "how",
+            "what",
+            "when",
+            "where",
+            "why",
+            "who",
+            "can",
+            "should",
+            "need",
+            "help",
+        ]
+        if question_mark:
+            return True
+        words = normalized.split()
+        if len(words) > 6:
+            return True
+        for term in policy_terms:
+            if term in words and term not in {"who"}:
+                return True
+        # Treat combinations like "hi can you" as substantive
+        if any(normalized.startswith(prefix) for prefix in ["hi can", "hello can", "hey can"]):
+            return True
+
+        return False
     
     @agent
     def hr_assistant(self) -> Agent:
@@ -158,12 +348,16 @@ class HrBot():
             tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
-            memory=True,  # Enable crew-level memory while keeping agent memory disabled
+            memory=True,  # Re-enabled with concise context injection
             embedder=self.embedder_config,
-            long_term_memory=self.long_term_memory,  # SQLite-based conversation history
-            cache=True,   # Enable caching for faster repeated queries
+            cache=False,  # Use explicit response cache to avoid stale tool plans
         )
         hybrid_tool = self.hybrid_rag_tool
+
+        return self._wrap_crew_with_sources(crew, hybrid_tool, self.long_term_memory, self.memory_db_path)
+    
+    def _wrap_crew_with_sources(self, crew: Crew, hybrid_tool, memory, memory_db_path):
+        """Wraps crew with source tracking logic"""
 
         class CrewWithSources:
             def __init__(self, inner, retrieval_tool, memory, memory_db_path: Optional[str]):
@@ -180,6 +374,8 @@ class HrBot():
                 query = inputs.get("query") if inputs else None
                 retrieved_chunks = []
                 query_terms: List[str] = []
+                
+                # Inject concise memory context for conversation continuity
                 if query:
                     self._inject_memory_context(query, inputs)
                     kwargs["inputs"] = inputs
@@ -217,6 +413,18 @@ class HrBot():
                         retrieved_chunks = []
 
                 output = self._inner.kickoff(*args, **kwargs)
+
+                if isinstance(output, str):
+                    class _OutputWrapper:
+                        def __init__(self, text: str):
+                            self.raw = text
+                            self.final_output = text
+                            self.tasks_output = []
+
+                        def __str__(self) -> str:
+                            return self.raw
+
+                    output = _OutputWrapper(output)
                 final_text: Optional[str] = None
                 output_text: Optional[str] = None
                 try:
@@ -300,40 +508,44 @@ class HrBot():
                     answer_text = output_text
                 elif output is not None:
                     answer_text = str(output)
+                if final_text is not None:
+                    if hasattr(output, "raw"):
+                        output.raw = final_text
+                    if hasattr(output, "final_output"):
+                        output.final_output = final_text
                 if query and answer_text:
                     self._persist_conversation_snippet(query, answer_text, sources_for_memory)
-                return final_text if final_text is not None else output
+                return output
 
             def __getattr__(self, item):
                 return getattr(self._inner, item)
 
             def _inject_memory_context(self, query: str, inputs: dict) -> None:
-                memories = self._load_recent_memories(query, limit=6)
+                """Inject concise memory context to avoid overwhelming prompt"""
+                memories = self._load_recent_memories(query, limit=3)  # Reduced from 6 to 3
                 if not memories:
                     return
+                
                 tokens = {token for token in re.split(r"[^a-z0-9]+", query.lower()) if len(token) > 2}
                 relevant = []
                 for entry in memories:
                     entry_tokens = {token for token in re.split(r"[^a-z0-9]+", entry["query"].lower()) if len(token) > 2}
                     if not tokens or entry_tokens.intersection(tokens):
                         relevant.append(entry)
+                
                 if not relevant:
-                    relevant = memories[:2]
+                    relevant = memories[:1]  # Only 1 fallback instead of 2
+                
+                # CONCISE format - just queries, no full answers
                 context_lines = ["Recent conversation:"]
-                for item in reversed(relevant):
-                    answer = item["answer"]
-                    if len(answer) > 600:
-                        answer = answer[:600].rstrip() + "..."
+                for item in reversed(relevant[-2:]):  # Only last 2 conversations
                     context_lines.append(f"- Employee: {item['query']}")
-                    context_lines.append(f"  Assistant: {answer}")
-                    sources = item.get("sources")
-                    if sources:
-                        if isinstance(sources, list):
-                            sources_text = ", ".join(str(s) for s in sources if s)
-                        else:
-                            sources_text = str(sources)
-                        if sources_text:
-                            context_lines.append(f"  Sources referenced: {sources_text}")
+                    # Include only a very brief summary (first 100 chars of answer)
+                    answer_summary = item["answer"][:100].strip()
+                    if len(item["answer"]) > 100:
+                        answer_summary += "..."
+                    context_lines.append(f"  Assistant: {answer_summary}")
+                
                 memory_context = "\n".join(context_lines)
                 existing_context = inputs.get("context", "").strip()
                 if existing_context:

@@ -185,7 +185,7 @@ class HrBotHierarchical():
         """
         
         # Create agent instances
-        #manager_agent = self.hr_manager()
+        manager_agent = self.hr_manager()
         policy_agent = self.policy_specialist()
         hrms_agent = self.hrms_specialist()
 
@@ -222,6 +222,18 @@ class HrBotHierarchical():
             def kickoff(self, *args, **kwargs):
                 """Execute crew and add source citations"""
                 output = self._inner.kickoff(*args, **kwargs)
+
+                if isinstance(output, str):
+                    class _OutputWrapper:
+                        def __init__(self, text: str):
+                            self.raw = text
+                            self.final_output = text
+                            self.tasks_output = []
+
+                        def __str__(self) -> str:
+                            return self.raw
+
+                    output = _OutputWrapper(output)
                 
                 # Try to add sources from RAG tool if not already present
                 try:

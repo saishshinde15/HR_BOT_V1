@@ -1,0 +1,9 @@
+{
+  "hits": 37,
+  "misses": 34,
+  "memory_hits": 3,
+  "disk_hits": 9,
+  "semantic_hits": 25,
+  "exact_hits": 12,
+  "total_queries": 71
+}

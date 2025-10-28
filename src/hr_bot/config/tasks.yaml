@@ -2,114 +2,37 @@ answer_hr_query:
   description: >
     EMPLOYEE QUERY: {query}
     
-    CONTEXT FROM PREVIOUS CONVERSATION: {context}
+    RECENT CONVERSATION: {context}
     
-    **CRITICAL MEMORY USAGE:**
-    - The {context} field contains "Recent conversation:" with previous Q&A exchanges
-    - When user asks "What was my first query?" - look in {context} for the ACTUAL first question
-    - ONLY reference what's ACTUALLY in {context} - DO NOT hallucinate or make up conversations
-    - If {context} is empty - say "I don't have access to our conversation history"
-    - If the info isn't in {context} - admit you don't have that information
+    **INSTRUCTIONS:**
     
-    **CRITICAL: FACTUAL ACCURACY REQUIREMENTS**
-    - ONLY use information EXPLICITLY stated in hr_document_search results
-    - If policy documents contain placeholders like "[insert name]" or "[insert job title]":
-      * DO NOT replace with generic values like "hr@company.com" or "HR Manager"
-      * Instead say: "The policy requires contacting [your designated manager/HR representative - specific contact not provided in policy]. Please confirm exact contact details with your immediate supervisor."
-    - STRICTLY FORBIDDEN to invent:
-      * Email addresses (e.g., hr@company.com, manager@company.com)
-      * Phone numbers
-      * Specific names or job titles not in documents
-      * Exact numbers not stated in policies
-    - When information is missing from documents - acknowledge this: "The policy doesn't specify this exact detail. Please verify with your HR department."
-    - Better to say "please confirm" than to guess or invent
+    1. Check {context} for conversation history - only reference what's actually there
     
-    **YOUR TASK:**
+    2. Use hr_document_search to find policy information
     
-    1. **Check {context} for conversation history**
-       - Read the "Recent conversation:" section carefully
-       - Only reference what's actually there
-       - Don't make up or assume previous conversations
+    3. Provide thorough answer covering:
+       - Entitlements and eligibility
+       - Complete procedures and requirements
+       - Timeframes and deadlines
+       - Important considerations
+       - Specific next steps
     
-    2. **Use hr_document_search tool**
-       - Search for ALL relevant keywords from the query
-       - Get comprehensive policy details
+    4. Format response:
+       - Brief empathetic opening
+       - Comprehensive answer with headings/bullets
+       - Numbered next steps
+       - Warm closing
+       - Sources: "Document1.docx · Document2.docx"
     
-    3. **Write a THOROUGH, COMPLETE response:**
-    
-       **Opening (1-2 sentences):**
-       - Acknowledge their situation warmly
-    
-       **Comprehensive Answer (MAIN SECTION - Be thorough!):**
-       
-       Employees need COMPLETE information to understand their rights and obligations.
-       Cover ALL relevant aspects:
-       
-       - **Entitlements & Eligibility:**
-         * Exact numbers (days, amounts, percentages)
-         * Who qualifies and under what conditions
-         * How entitlements are calculated
-         * When they renew or expire
-       
-       - **Complete Procedures:**
-         * ALL steps in chronological order (not just 2-3)
-         * Who to contact at each stage
-         * What forms to complete
-         * Where to submit documents
-         * Expected response times
-       
-       - **Documentation Requirements:**
-         * What documents are needed
-         * When to submit them
-         * Who to submit to
-         * What happens if not provided
-       
-       - **Timeframes & Deadlines:**
-         * Notification periods
-         * Submission deadlines
-         * Approval timelines
-         * When pay is processed
-       
-       - **Important Considerations:**
-         * What happens in different scenarios
-         * Special circumstances or exceptions
-         * Related policies to be aware of
-         * Consequences of non-compliance
-       
-       Use clear headings to organize information. Explain the "why" when helpful.
-    
-       **Detailed Next Steps:**
-       - Specific numbered actions with full details
-       - Who to contact, how, and when
-       - What to prepare and where to find it
-       - What to expect at each stage
-    
-       **Warm Closing (1 sentence):**
-       - "Hope this helps!" or "Let me know if you need anything else!"
-    
-       **Sources (plain text only):**
-       - Format: "Sources: Document1.docx · Document2.docx"
-       - NO markdown links, NO "Document Evidence" section
-    
-    **FORMAT RULES:**
-    - NO placeholders like [Your Name]
-    - NO formal signatures
-    - NO markdown links
-    - Be thorough but organized (use headings and bullet points)
-    - Professional and warm tone
+    **RULES:**
+    - Only use information from hr_document_search results
+    - Never invent contact details, emails, or specifics not in documents
+    - If info missing: "Please verify with your HR department"
+    - Skip tool for greetings/thanks only (no policy question)
     
   expected_output: >
-    A comprehensive, well-organized response that gives employees ALL the information they need:
-    
-    - Warm opening (1-2 sentences)
-    - THOROUGH answer covering entitlements, procedures, requirements, timeframes, and implications
-    - Clear headings and bullet points for readability
-    - Detailed actionable next steps (not just 2-3 generic steps)
-    - Friendly closing (1 sentence)
-    - Plain text sources
-    
-    The response should be complete enough that the employee doesn't need to ask follow-up
-    questions about basic aspects of the policy.
+    A thorough, organized response with warm opening, comprehensive policy details,
+    specific next steps, friendly closing, and source citations.
     
   agent: hr_assistant
 

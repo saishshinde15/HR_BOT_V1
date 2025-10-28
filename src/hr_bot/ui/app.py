@@ -722,10 +722,12 @@ def build_history_context(history: List[Dict[str, str]], new_question: str | Non
 
 
 def query_bot(bot: HrBot, question: str, history_context: str) -> str:
-    """Query the bot with an explicit conversation history context."""
-    inputs = {"query": question, "context": history_context or ""}
-    result = bot.crew().kickoff(inputs=inputs)
-    return str(result)
+    """
+    Query the bot with caching for ultra-fast responses.
+    Uses the new query_with_cache method for automatic caching.
+    """
+    # Use the cached query method instead of direct crew kickoff
+    return bot.query_with_cache(query=question, context=history_context or "")
 
 
 def _rerun() -> None:

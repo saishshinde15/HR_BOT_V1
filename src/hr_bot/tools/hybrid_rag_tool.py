@@ -350,6 +350,19 @@ class HybridRAGRetriever:
         
         print(f"Processing {len(self.documents)} chunks...")
         
+        # Check if we have documents before building index
+        if len(self.documents) == 0:
+            print("⚠️  Warning: No documents found to index. Creating empty index.")
+            # Initialize empty structures to prevent crashes
+            self.vector_store = None
+            self.bm25 = None
+            self.faiss_retriever = None
+            self.bm25_retriever = None
+            self.ensemble_retriever = None
+            self.index_hash = current_hash
+            print("✓ Empty index initialized (add documents to data/ directory)")
+            return
+        
         # Build vector store (FAISS for speed)
         texts = [doc.page_content for doc in self.documents]
         metadatas = [doc.metadata for doc in self.documents]
@@ -393,8 +406,10 @@ class HybridRAGRetriever:
         Returns:
             List of SearchResult objects
         """
-        if not self.vector_store or not self.ensemble_retriever:
-            raise ValueError("Index not built. Call build_index() first.")
+        # Check if index is empty or not built
+        if not self.vector_store or not self.ensemble_retriever or len(self.documents) == 0:
+            print("⚠️  Warning: No documents in index, returning empty results")
+            return []
         
         top_k = top_k or self.top_k_results
         
@@ -666,6 +681,10 @@ class HybridRAGTool(BaseTool):
             Formatted string with search results
         """
         try:
+            # Check if index is empty
+            if self.retriever.vector_store is None or len(self.retriever.documents) == 0:
+                return "⚠️ No HR documents available. Please add policy documents to the data/ directory."
+            
             # Resolve top_k from env/retriever default if not provided
             if top_k is None:
                 top_k = self.retriever.top_k_results

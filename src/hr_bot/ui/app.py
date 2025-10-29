@@ -8,7 +8,7 @@ from __future__ import annotations
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import streamlit as st
 
@@ -59,6 +59,240 @@ MINIMAL_CSS = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
+    /* ==================== THEME TOGGLE BUTTON - ELEGANT & FIXED ==================== */
+    .theme-toggle-container {
+        position: fixed;
+        top: 1.5rem;
+        right: 2rem;
+        z-index: 9999;
+        animation: fadeIn 0.6s ease-out 0.4s both;
+    }
+    
+    .theme-toggle {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(120, 119, 198, 0.15) 0%, rgba(155, 143, 217, 0.1) 100%);
+        border: 1.5px solid rgba(120, 119, 198, 0.4);
+        backdrop-filter: blur(12px);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 16px rgba(120, 119, 198, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 0;
+        outline: none;
+    }
+    
+    .theme-toggle:hover {
+        transform: translateY(-2px) scale(1.05);
+        border-color: rgba(120, 119, 198, 0.6);
+        background: linear-gradient(135deg, rgba(120, 119, 198, 0.25) 0%, rgba(155, 143, 217, 0.2) 100%);
+        box-shadow: 0 8px 28px rgba(120, 119, 198, 0.3), 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .theme-toggle:active {
+        transform: translateY(0) scale(0.98);
+    }
+    
+    .theme-toggle span {
+        font-size: 22px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+        transition: all 0.3s ease;
+    }
+    
+    .light-theme .theme-toggle {
+        background: linear-gradient(135deg, rgba(120, 119, 198, 0.12) 0%, rgba(155, 143, 217, 0.08) 100%);
+        border: 1.5px solid rgba(120, 119, 198, 0.3);
+        box-shadow: 0 4px 16px rgba(120, 119, 198, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .light-theme .theme-toggle:hover {
+        background: linear-gradient(135deg, rgba(120, 119, 198, 0.2) 0%, rgba(155, 143, 217, 0.15) 100%);
+        box-shadow: 0 8px 28px rgba(120, 119, 198, 0.2), 0 4px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* ==================== FEEDBACK BUTTONS - ELEGANT DESIGN ==================== */
+    .assistant-message-container {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .assistant-content {
+        color: var(--text-primary);
+        line-height: 1.7;
+    }
+    
+    .user-message {
+        background: linear-gradient(135deg, rgba(120, 119, 198, 0.15) 0%, rgba(155, 143, 217, 0.1) 100%);
+        border: 1px solid rgba(120, 119, 198, 0.25);
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        margin: 1rem 0;
+        color: var(--text-primary);
+    }
+    
+    .feedback-container {
+        display: flex !important;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid rgba(120, 119, 198, 0.15);
+        align-items: center;
+    }
+    
+    .feedback-label {
+        font-size: 0.875rem;
+        color: #b8b8b8 !important;
+        font-weight: 400;
+        margin-right: 0.25rem;
+    }
+    
+    .feedback-btn {
+        width: 38px !important;
+        height: 38px !important;
+        border-radius: 10px !important;
+        background: linear-gradient(135deg, rgba(26, 26, 46, 0.4) 0%, rgba(15, 15, 30, 0.5) 100%) !important;
+        border: 1px solid rgba(120, 119, 198, 0.2) !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(8px);
+    }
+    
+    .feedback-btn:hover {
+        transform: translateY(-2px) scale(1.08);
+        border-color: rgba(120, 119, 198, 0.4);
+        box-shadow: 0 4px 12px rgba(120, 119, 198, 0.15);
+    }
+    
+    .feedback-btn:active {
+        transform: translateY(0) scale(0.95);
+    }
+    
+    .feedback-btn.thumbs-up:hover {
+        background: linear-gradient(135deg, rgba(76, 175, 80, 0.15) 0%, rgba(56, 142, 60, 0.2) 100%);
+        border-color: rgba(76, 175, 80, 0.4);
+    }
+    
+    .feedback-btn.thumbs-down:hover {
+        background: linear-gradient(135deg, rgba(244, 67, 54, 0.15) 0%, rgba(211, 47, 47, 0.2) 100%);
+        border-color: rgba(244, 67, 54, 0.4);
+    }
+    
+    /* Radio-based selection (JS-free, reliable) */
+    .fb-radio { display: none; }
+
+    .fb-radio:checked + label.feedback-btn {
+        transform: scale(1.15) !important;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        box-shadow: 0 8px 24px rgba(120, 119, 198, 0.25);
+    }
+
+    .fb-radio:checked + label.thumbs-up {
+        background: linear-gradient(135deg, rgba(76, 175, 80, 0.5) 0%, rgba(56, 142, 60, 0.6) 100%) !important;
+        border-color: rgba(76, 175, 80, 0.9) !important;
+        box-shadow: 0 0 30px rgba(76, 175, 80, 0.7), 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    .fb-radio:checked + label.thumbs-up svg path {
+        stroke: #66BB6A !important;
+        opacity: 1 !important;
+        stroke-width: 3 !important;
+        filter: drop-shadow(0 0 10px rgba(76, 175, 80, 1));
+    }
+
+    .fb-radio:checked + label.thumbs-down {
+        background: linear-gradient(135deg, rgba(244, 67, 54, 0.5) 0%, rgba(211, 47, 47, 0.6) 100%) !important;
+        border-color: rgba(244, 67, 54, 0.9) !important;
+        box-shadow: 0 0 30px rgba(244, 67, 54, 0.7), 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    .fb-radio:checked + label.thumbs-down svg path {
+        stroke: #EF5350 !important;
+        opacity: 1 !important;
+        stroke-width: 3 !important;
+        filter: drop-shadow(0 0 10px rgba(244, 67, 54, 1));
+    }
+
+    .feedback-btn.selected {
+        transform: scale(1.15) !important;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    }
+    
+    .feedback-btn.thumbs-up.selected {
+        background: linear-gradient(135deg, rgba(76, 175, 80, 0.5) 0%, rgba(56, 142, 60, 0.6) 100%) !important;
+        border-color: rgba(76, 175, 80, 0.9) !important;
+        box-shadow: 0 0 30px rgba(76, 175, 80, 0.7), 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    .feedback-btn.thumbs-up.selected svg path {
+        stroke: #66BB6A !important;
+        opacity: 1 !important;
+        stroke-width: 3 !important;
+        filter: drop-shadow(0 0 10px rgba(76, 175, 80, 1));
+    }
+    
+    .feedback-btn.thumbs-down.selected {
+        background: linear-gradient(135deg, rgba(244, 67, 54, 0.5) 0%, rgba(211, 47, 47, 0.6) 100%) !important;
+        border-color: rgba(244, 67, 54, 0.9) !important;
+        box-shadow: 0 0 30px rgba(244, 67, 54, 0.7), 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    .feedback-btn.thumbs-down.selected svg path {
+        stroke: #EF5350 !important;
+        opacity: 1 !important;
+        stroke-width: 3 !important;
+        filter: drop-shadow(0 0 10px rgba(244, 67, 54, 1));
+    }
+    
+    .feedback-btn svg {
+        transition: all 0.3s ease;
+    }
+    
+    .feedback-btn:hover svg {
+        transform: scale(1.15);
+    }
+    
+    /* Light theme feedback buttons */
+    .light-theme .feedback-btn {
+        background: linear-gradient(135deg, rgba(248, 249, 250, 0.8) 0%, rgba(233, 236, 239, 0.9) 100%);
+        border: 1px solid rgba(120, 119, 198, 0.15);
+    }
+    
+    .light-theme .feedback-btn:hover {
+        box-shadow: 0 4px 12px rgba(120, 119, 198, 0.1);
+    }
+    
+    .light-theme .feedback-label {
+        color: #6c757d;
+    }
+    
+    @keyframes feedbackPulse {
+        0% {
+            transform: scale(1);
+        }
+        30% {
+            transform: scale(1.2);
+        }
+        50% {
+            transform: scale(1.15);
+        }
+        70% {
+            transform: scale(1.18);
+        }
+        100% {
+            transform: scale(1.05);
+        }
+    }
+    
     /* ==================== GLOBAL RESET ==================== */
     * {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -77,12 +311,36 @@ MINIMAL_CSS = """
         display: none !important;
     }
     
+    /* ==================== THEME VARIABLES ==================== */
+    :root {
+        --bg-gradient-start: #1a1a2e;
+        --bg-gradient-mid: #0f0f1e;
+        --bg-gradient-end: #000000;
+        --text-primary: #e5e5e5;
+        --text-secondary: #a0a0a0;
+        --card-bg: rgba(26, 26, 46, 0.95);
+        --card-border: rgba(120, 119, 198, 0.2);
+        --accent-color: rgba(120, 119, 198, 0.5);
+    }
+    
+    .light-theme {
+        --bg-gradient-start: #f8f9fa;
+        --bg-gradient-mid: #e9ecef;
+        --bg-gradient-end: #dee2e6;
+        --text-primary: #212529;
+        --text-secondary: #6c757d;
+        --card-bg: rgba(255, 255, 255, 0.95);
+        --card-border: rgba(120, 119, 198, 0.15);
+        --accent-color: rgba(120, 119, 198, 0.7);
+    }
+    
     /* ==================== DARK THEME BASE WITH RICH GRADIENT ==================== */
     .main {
-        background: radial-gradient(ellipse at top, #1a1a2e 0%, #0f0f1e 50%, #000000 100%) !important;
-        color: #e5e5e5;
+        background: radial-gradient(ellipse at top, var(--bg-gradient-start) 0%, var(--bg-gradient-mid) 50%, var(--bg-gradient-end) 100%) !important;
+        color: var(--text-primary);
         min-height: 100vh;
         position: relative;
+        transition: background 0.4s ease, color 0.4s ease;
     }
     
     /* Subtle animated background effect */
@@ -172,19 +430,28 @@ MINIMAL_CSS = """
     }
     
     [data-testid="assistant"] > div {
-        background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 15, 30, 0.98) 100%) !important;
-        color: #e8e8e8 !important;
+        background: linear-gradient(135deg, var(--card-bg) 0%, var(--card-bg) 100%) !important;
+        color: var(--text-primary) !important;
         padding: 2rem !important;
         border-radius: 1.5rem !important;
         max-width: 90% !important;
         font-size: 0.975rem !important;
         line-height: 1.75 !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid var(--card-border) !important;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.15) !important;
         position: relative !important;
         overflow: hidden !important;
         backdrop-filter: blur(12px) !important;
         transition: all 0.3s ease !important;
+    }
+    
+    /* Light theme adjustments for assistant messages */
+    .light-theme [data-testid="assistant"] > div {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+    }
+    
+    .light-theme [data-testid="assistant"] > div:hover {
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1), 0 3px 6px rgba(0, 0, 0, 0.06) !important;
     }
     
     /* Subtle gradient overlay on assistant messages */
@@ -568,6 +835,8 @@ MINIMAL_CSS = """
 </style>
 """
 
+
+
 # ============================================================================
 # RESOURCE LOADING & CACHING
 # ============================================================================
@@ -673,13 +942,82 @@ def format_answer(answer: str) -> str:
     return answer
 
 
-def render_message(role: str, content: str) -> None:
-    """Render chat message with clean, professional styling."""
-    with st.chat_message(role):
-        if role == "assistant":
-            st.markdown(format_answer(content))
-        else:
-            st.markdown(content, unsafe_allow_html=False)
+def render_message(role: str, content: str, message_id: int | None = None) -> None:
+    """Render chat message with clean, professional styling and feedback buttons."""
+    if role == "assistant":
+        # Use st.html() for feedback controls to force pure HTML rendering
+        st.markdown(
+            f"""
+            <div class="assistant-message-container">
+                <div class="assistant-content">
+                    {format_answer(content)}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.html(f"""
+            <style>
+                .feedback-container {{
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 0.75rem 0;
+                    margin-top: 0.5rem;
+                }}
+                .feedback-label {{
+                    font-size: 0.875rem;
+                    color: #b8b8b8;
+                    font-weight: 400;
+                    margin-right: 0.25rem;
+                }}
+                .fb-radio {{ display: none; }}
+                .feedback-btn {{
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 10px;
+                    background: linear-gradient(135deg, rgba(26, 26, 46, 0.4) 0%, rgba(15, 15, 30, 0.5) 100%);
+                    border: 1px solid rgba(120, 119, 198, 0.2);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    font-size: 20px;
+                }}
+                .feedback-btn:hover {{
+                    transform: translateY(-2px) scale(1.08);
+                    border-color: rgba(120, 119, 198, 0.4);
+                    box-shadow: 0 4px 12px rgba(120, 119, 198, 0.15);
+                }}
+                .fb-radio:checked + .feedback-btn {{
+                    transform: scale(1.15);
+                    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }}
+                .fb-radio:checked + .thumbs-up {{
+                    background: linear-gradient(135deg, rgba(76, 175, 80, 0.5) 0%, rgba(56, 142, 60, 0.6) 100%);
+                    border-color: rgba(76, 175, 80, 0.9);
+                    box-shadow: 0 0 30px rgba(76, 175, 80, 0.7), 0 8px 25px rgba(0, 0, 0, 0.3);
+                }}
+                .fb-radio:checked + .thumbs-down {{
+                    background: linear-gradient(135deg, rgba(244, 67, 54, 0.5) 0%, rgba(211, 47, 47, 0.6) 100%);
+                    border-color: rgba(244, 67, 54, 0.9);
+                    box-shadow: 0 0 30px rgba(244, 67, 54, 0.7), 0 8px 25px rgba(0, 0, 0, 0.3);
+                }}
+            </style>
+            <div class="feedback-container">
+                <span class="feedback-label">Was this helpful?</span>
+
+                <input type="radio" name="fb-{message_id}" id="fb-{message_id}-up" class="fb-radio" />
+                <label for="fb-{message_id}-up" class="feedback-btn thumbs-up" title="Helpful">👍</label>
+
+                <input type="radio" name="fb-{message_id}" id="fb-{message_id}-down" class="fb-radio" />
+                <label for="fb-{message_id}-down" class="feedback-btn thumbs-down" title="Not helpful">👎</label>
+            </div>
+        """)
+    else:
+        st.markdown(f'<div class="user-message">{content}</div>', unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -770,6 +1108,45 @@ def main() -> None:
     # Apply professional styling
     st.markdown(MINIMAL_CSS, unsafe_allow_html=True)
 
+    # Inject simple, reliable feedback interaction
+    st.markdown(
+        """
+        <script>
+        (function () {
+            if (window.__hrbotFeedbackInitialized) {
+                return;
+            }
+            window.__hrbotFeedbackInitialized = true;
+
+            document.addEventListener('click', (event) => {
+                const button = event.target.closest('.feedback-btn');
+                if (!button) {
+                    return;
+                }
+
+                const container = button.closest('.feedback-container');
+                if (container) {
+                    // Remove selection from all buttons in this container
+                    container.querySelectorAll('.feedback-btn').forEach((btn) => {
+                        btn.classList.remove('selected');
+                    });
+                }
+
+                // Add selected class - CSS will handle the visual effect
+                button.classList.add('selected');
+
+                const messageId = button.getAttribute('data-message-id');
+                const sentiment = button.getAttribute('data-feedback');
+                console.log(`✅ Feedback recorded: message ${messageId} = ${sentiment}`);
+            });
+            
+            console.log('🎨 Feedback system ready');
+        })();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
     # Professional header with enhanced styling and visible logo
     st.markdown("""
     <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
@@ -830,8 +1207,8 @@ def main() -> None:
         st.session_state["warm_future"] = executor.submit(_warm_bot, bot)
 
     # Render chat history
-    for message in st.session_state["history"]:
-        render_message(message["role"], message["content"])
+    for idx, message in enumerate(st.session_state["history"]):
+        render_message(message["role"], message["content"], message_id=idx)
 
     # Check pending response and show status
     pending = st.session_state.get("pending_response")

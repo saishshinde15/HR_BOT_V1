@@ -671,14 +671,14 @@ class HybridRAGTool(BaseTool):
     
     def _run(self, query: str, top_k: Optional[int] = None) -> str:
         """
-        Execute hybrid search and return formatted results
+        Execute hybrid search and return formatted results with confidence validation
         
         Args:
             query: Search query
             top_k: Number of results to return
             
         Returns:
-            Formatted string with search results
+            Formatted string with search results or "NO_RELEVANT_DOCUMENTS" if confidence is too low
         """
         try:
             # Check if index is empty
@@ -706,7 +706,15 @@ class HybridRAGTool(BaseTool):
                 ))
             
             if not results:
-                return "No relevant information found in the HR documents."
+                return "NO_RELEVANT_DOCUMENTS"
+            
+            # CRITICAL: Score-based confidence validation to prevent hallucinations
+            # If best score is too negative/low, documents are not relevant
+            best_score = max(r.score for r in results)
+            CONFIDENCE_THRESHOLD = float(os.getenv("RAG_CONFIDENCE_THRESHOLD", "-2.0"))
+            
+            if best_score < CONFIDENCE_THRESHOLD:
+                return "NO_RELEVANT_DOCUMENTS"
             
             # Format results
             output = f"Found {len(results)} relevant results:\n\n"

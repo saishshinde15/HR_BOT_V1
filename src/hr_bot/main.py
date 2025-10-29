@@ -37,7 +37,7 @@ def run():
     print("="*70 + "\n")
     
     # Default query for testing
-    default_query = "I was caught using phone while on duty, what are the consequences?"
+    default_query = "I am Ill and will not we able to come to work today. Also my wife is expecting a baby so i have no idea how long i will be off work"
     
     # Check if query is provided as argument
     if len(sys.argv) > 1 and sys.argv[0] != 'crewai':
@@ -59,8 +59,16 @@ def run():
     
     try:
         print("\nProcessing your query...\n")
-        #result = HrBotHierarchical().crew().kickoff(inputs=inputs)
-        result = HrBot().crew().kickoff(inputs=inputs)
+        bot = HrBot()
+        # Use query_with_cache which includes content safety filtering
+        result = bot.query_with_cache(query, context=inputs.get('context', ''))
+        
+        # Print the response
+        print("\n" + "="*70)
+        print("RESPONSE:")
+        print("="*70 + "\n")
+        print(result)
+        print("\n" + "="*70 + "\n")
         
         return result
         
@@ -102,7 +110,7 @@ def interactive():
             }
             
             print("\nProcessing...\n")
-            result = bot.crew().kickoff(inputs=inputs)
+            result = bot.query_with_cache(query, context=inputs.get('context', ''))
             
             print("\n" + "-"*70)
             print("Response:")

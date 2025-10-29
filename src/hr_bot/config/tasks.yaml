@@ -2,16 +2,22 @@ answer_hr_query:
   description: >
     EMPLOYEE QUERY: {query}
     
-    RECENT CONVERSATION: {context}
-    
     **INSTRUCTIONS:**
     
-    1. Check {context} for conversation history - only reference what's actually there
+    1. **INTELLIGENT TOOL SELECTION:**
+       - Use **master_actions_guide** when query asks HOW TO do something (apply leave, download payslip, update profile, enroll training, check balance)
+       - Use **hr_document_search** for policy questions (eligibility, rules, entitlements, what is allowed, procedures)
+       - Use **BOTH tools** when query needs both procedural steps AND policy information
     
-    2. Use hr_document_search to find policy information
+    2. **INFORMATION FUSION:**
+       - If master_actions_guide returns steps/links, include them prominently with clickable links
+       - If hr_document_search returns policy details, integrate them with the action steps
+       - Create ONE comprehensive answer combining both sources seamlessly
+       - If neither tool has information, use validation system (contact HR message)
     
     3. Provide thorough answer covering:
-       - Entitlements and eligibility
+       - Direct links and step-by-step instructions (from master_actions_guide)
+       - Policy requirements and eligibility (from hr_document_search)
        - Complete procedures and requirements
        - Timeframes and deadlines
        - Important considerations
@@ -19,20 +25,30 @@ answer_hr_query:
     
     4. Format response:
        - Brief empathetic opening
+       - **Links and Steps** section (if available from master_actions_guide)
+       - **Policy Information** section (ONLY if hr_document_search found relevant information)
        - Comprehensive answer with headings/bullets
        - Numbered next steps
        - Warm closing
-       - Sources: "Document1.docx · Document2.docx"
+       - Sources: "Master Actions Guide, Document1.docx, Document2.docx"
+    
+    5. **CRITICAL - Policy Section Rules:**
+       - ONLY include "Policy Information" section if hr_document_search found RELEVANT documents
+       - If query is purely procedural (HOW TO) and no policy needed, SKIP policy section entirely
+       - DO NOT say "I couldn't find policy information" if the user didn't ask for policy
+       - If user asks for BOTH steps AND policy, but policy not found, then mention policy gap
     
     **RULES:**
-    - Only use information from hr_document_search results
-    - Never invent contact details, emails, or specifics not in documents
-    - If info missing: "Please verify with your HR department"
-    - Skip tool for greetings/thanks only (no policy question)
+    - ALWAYS check master_actions_guide first for procedural queries
+    - Only use information from tool results
+    - Never invent contact details, emails, or specifics not in documents/actions
+    - If info missing from both tools: "Please verify with your HR department"
+    - Skip tools for greetings/thanks only (no policy question)
     
   expected_output: >
-    A thorough, organized response with warm opening, comprehensive policy details,
-    specific next steps, friendly closing, and source citations.
+    A thorough, organized response with warm opening, direct action links/steps (if applicable),
+    comprehensive policy details (if applicable), specific next steps, friendly closing, and source citations
+    from both Master Actions Guide and HR documents.
     
   agent: hr_assistant
 

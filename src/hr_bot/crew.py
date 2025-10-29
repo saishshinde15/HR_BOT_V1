@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from hr_bot.tools.hybrid_rag_tool import HybridRAGTool
+from hr_bot.tools.master_actions_tool import MasterActionsTool
 from hr_bot.utils.cache import ResponseCache
 
 
@@ -48,15 +49,115 @@ def remove_document_evidence_section(text: str) -> str:
     return "\n".join(cleaned_lines).rstrip()
 
 
+def validate_response_against_sources(response_text: str, sources: List[str], retrieved_content: str, original_query: str) -> dict:
+    """
+    Validate if response is grounded in actual retrieved documents.
+    Returns dict with validation status and corrected response if needed.
+    """
+    # Check if response is actually using tool results
+    if not sources or len(sources) == 0:
+        # No sources means no search was done - potential hallucination
+        if any(keyword in response_text.lower() for keyword in [
+            "policy", "according to", "procedure", "entitled", "must", "should",
+            "company requires", "your manager", "hr department", "form", "days"
+        ]):
+            return {
+                "is_valid": False,
+                "reason": "policy_answer_without_search",
+                "corrected_response": (
+                    "I apologize, but I couldn't find specific information about this in our HR policies. "
+                    "This topic may not be covered in our current documentation. "
+                    "I recommend checking with your HR department directly for guidance on this matter.\n\n"
+                    "Is there anything else I can help you with?"
+                )
+            }
+    
+    # CRITICAL: Check if retrieved documents are actually relevant to the query
+    # Extract key topics from query
+    query_lower = original_query.lower()
+    query_keywords = set(word for word in query_lower.split() if len(word) > 3 and word not in {
+        "what", "when", "where", "which", "this", "that", "there", "with", "from", "have"
+    })
+    
+    # Check if retrieved content has any relevance to query
+    if retrieved_content:
+        content_lower = retrieved_content.lower()
+        # Count keyword matches
+        matches = sum(1 for keyword in query_keywords if keyword in content_lower)
+        relevance_ratio = matches / max(len(query_keywords), 1)
+        
+        # If less than 20% of keywords found in documents, they're irrelevant
+        if relevance_ratio < 0.2:
+            return {
+                "is_valid": False,
+                "reason": "irrelevant_documents",
+                "corrected_response": (
+                    "I searched our HR documentation but couldn't find relevant policies that address your specific question. "
+                    "This topic doesn't appear to be covered in our current HR policies. "
+                    "I recommend contacting your HR department directly for guidance on this matter.\n\n"
+                    "Is there anything else I can help you with?"
+                )
+            }
+    
+    # Check for fabricated procedures not in documents
+    if retrieved_content:
+        # Common hallucination phrases that indicate fabricated procedures
+        fabrication_indicators = [
+            ("review the company", retrieved_content),
+            ("consult with the finance", retrieved_content),
+            ("submit a formal request", retrieved_content),
+            ("contact your manager", retrieved_content),
+            ("approval from relevant authorities", retrieved_content),
+            ("follow the company's procurement", retrieved_content),
+        ]
+        
+        for phrase, document_text in fabrication_indicators:
+            if phrase in response_text.lower() and phrase not in document_text.lower():
+                # Bot is making up procedures
+                return {
+                    "is_valid": False,
+                    "reason": "fabricated_procedures",
+                    "corrected_response": (
+                        "I searched our HR policies but couldn't find information that directly addresses your question. "
+                        "This specific topic doesn't appear to be covered in our current HR documentation. "
+                        "Please contact your HR department for guidance on this matter.\n\n"
+                        "Is there anything else I can help you with?"
+                    )
+                }
+    
+    # Check for common hallucination patterns
+    hallucination_patterns = [
+        r"contact.*hr.*at.*@",  # Email addresses
+        r"call.*\d{3}[-.]?\d{3}[-.]?\d{4}",  # Phone numbers
+        r"form.*\d+",  # Form numbers
+        r"\[insert\s+\w+\]",  # Placeholder text
+    ]
+    
+    import re
+    for pattern in hallucination_patterns:
+        if re.search(pattern, response_text, re.IGNORECASE):
+            # Check if this pattern exists in retrieved content
+            if retrieved_content and not re.search(pattern, retrieved_content, re.IGNORECASE):
+                return {
+                    "is_valid": False,
+                    "reason": "fabricated_details",
+                    "corrected_response": (
+                        "I found some information related to your question, but I don't have the complete "
+                        "details in our HR documentation. Please verify specific contact information, forms, "
+                        "or procedures directly with your HR department to ensure accuracy.\n\n"
+                        "Is there anything else I can help clarify?"
+                    )
+                }
+    
+    return {"is_valid": True, "reason": "grounded_response"}
+
+
 @CrewBase
 class HrBot():
     """
     Production-ready HR Bot with empathetic, human-like responses:
     - Emotionally intelligent and empathetic communication
-            }
-            if aws_region:
-                llm_kwargs["aws_region_name"] = aws_region
-    - Amazon Bedrock (Nova Micro) LLM for natural, conversational responses
+    - Amazon Bedrock (Amazon Nova Lite) LLM for natural, conversational responses
     - Detailed, accurate answers with proper source citation
     """
 
@@ -66,11 +167,11 @@ class HrBot():
     def __init__(self):
         super().__init__()
         
-        # Initialize Amazon Bedrock LLM (using environment variables)
+        # Initialize Amazon Bedrock LLM with Nova Pro
         # Set AWS credentials for Bedrock access
         aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
         aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        aws_region = os.getenv("AWS_REGION", "ap-south-1")
+        aws_region = os.getenv("AWS_REGION", "us-east-1")
         
         if aws_access_key:
             os.environ["AWS_ACCESS_KEY_ID"] = aws_access_key
@@ -81,9 +182,9 @@ class HrBot():
             os.environ["AWS_DEFAULT_REGION"] = aws_region
         
         llm_kwargs = {
-            "model": os.getenv("BEDROCK_MODEL", "bedrock/us.amazon.nova-micro-v1:0"),
-            "temperature": 0.7,  # Higher temperature for more natural, conversational responses
-            "max_tokens": 2000,  # Ensure model completes responses after tool use
+            "model": os.getenv("BEDROCK_MODEL", "bedrock/amazon.nova-pro-v1:0"),
+            "temperature": 0.7,
+            "max_tokens": 4000,
         }
         if aws_region:
             llm_kwargs["aws_region_name"] = aws_region
@@ -96,6 +197,7 @@ class HrBot():
         # Initialize tools with absolute data directory so document loading works in UI/CLI contexts
         data_dir_path = os.path.join(project_root, "data")
         self.hybrid_rag_tool = HybridRAGTool(data_dir=data_dir_path)
+        self.master_actions_tool = MasterActionsTool()  # Initialize Master Actions Tool
 
         # Persist AWS configuration for downstream components (e.g., memory embedder)
         self.aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -151,6 +253,12 @@ class HrBot():
         Returns:
             Formatted response string
         """
+        # Check for inappropriate content FIRST (before cache/processing)
+        safety_response = self._check_content_safety(query)
+        if safety_response:
+            print("🛡️ CONTENT SAFETY - Inappropriate content detected")
+            return safety_response
+        
         # Check cache first
         cached_response = self.response_cache.get(query, context)
         if cached_response:
@@ -314,6 +422,129 @@ class HrBot():
 
         return False
     
+    def _check_content_safety(self, query: str) -> Optional[str]:
+        """
+        Check for inappropriate, NSFW, or abusive content.
+        Returns warning message if inappropriate content detected, None otherwise.
+        Allows legitimate HR policy questions.
+        """
+        normalized = query.lower().strip()
+        
+        # Legitimate HR policy keywords that override blocking
+        legitimate_hr_terms = [
+            'policy', 'policies', 'harassment policy', 'sexual harassment',
+            'report harassment', 'complaint', 'discrimination', 'workplace harassment',
+            'hr policy', 'company policy', 'code of conduct', 'what is the policy',
+            'workplace safety', 'report', 'file complaint'
+        ]
+        
+        # Check if it's a legitimate HR policy question
+        is_policy_question = any(term in normalized for term in legitimate_hr_terms)
+        
+        # Strong profanity patterns - ALWAYS block regardless
+        strong_profanity = [
+            r'\bf+u+c+k+\w*',
+            r'\bs+h+i+t+\w*',
+            r'\bb+i+t+c+h+\w*',
+            r'\ba+s+s+h+o+l+e+',
+            r'\bc+u+n+t+',
+            r'\bm+o+t+h+e+r+f+u+c+k+',
+            r'\bb+a+s+t+a+r+d+',
+            r'\bd+i+c+k+h+e+a+d+',
+            r'\bp+i+s+s+ +o+f+f+',
+            r'\bb+u+l+l+s+h+i+t+',
+        ]
+        
+        # Check for strong profanity - always block
+        for pattern in strong_profanity:
+            if re.search(pattern, normalized):
+                return (
+                    "⚠️ **Inappropriate Language Detected**\n\n"
+                    "Your message contains profanity that violates workplace communication standards. "
+                    "Using abusive or offensive language may result in disciplinary action according to company policy.\n\n"
+                    "As your HR assistant, I'm here to help with professional questions in a respectful manner. "
+                    "Please rephrase your question professionally, and I'll be happy to assist you."
+                )
+        
+        # Explicit sexual content - block unless it's a policy question
+        explicit_sexual_patterns = [
+            r'\bf+u+c+k+ (my|an?|the|with)',
+            r'\bsleep with',
+            r'\bhave sex with',
+            r'\bhook(ing)? up with',
+            r'\baffair with',
+            r'\bdate? (my|an?|the) (coworker|colleague|employee|boss)',
+            r'\bmake love',
+            r'\bget laid',
+            r'\bone night stand',
+            r'\bsexual (favor|act|relationship)',
+        ]
+        
+        # NSFW terms - block unless it's a policy question
+        nsfw_keywords = [
+            'nude', 'naked', 'porn', 'pornography', 'xxx', 'adult content',
+            'erotic', 'masturbat', 'sex tape', 'explicit content'
+        ]
+        
+        if not is_policy_question:
+            # Check explicit sexual patterns
+            for pattern in explicit_sexual_patterns:
+                if re.search(pattern, normalized):
+                    return (
+                        "⚠️ **NSFW Content Detected**\n\n"
+                        "Your message contains explicit sexual content that is inappropriate for the workplace. "
+                        "This type of content violates company policies and may result in disciplinary action.\n\n"
+                        "If you have legitimate questions about workplace conduct policies, sexual harassment policies, "
+                        "or how to report inappropriate behavior, please rephrase your question professionally."
+                    )
+            
+            # Check NSFW keywords
+            for keyword in nsfw_keywords:
+                if keyword in normalized:
+                    return (
+                        "⚠️ **NSFW Content Detected**\n\n"
+                        "Your message contains content that is inappropriate for workplace communication. "
+                        "This may violate company policies and could result in disciplinary action.\n\n"
+                        "I'm here to help with HR policies and procedures. Please rephrase your question professionally, "
+                        "or contact your HR department directly for sensitive matters."
+                    )
+        
+        # Violent or threatening language
+        violent_keywords = [
+            'kill', 'murder', 'harm', 'hurt', 'attack', 'beat', 'destroy',
+            'violence', 'weapon', 'gun', 'knife', 'bomb', 'threat'
+        ]
+        
+        # Check for violent language
+        for keyword in violent_keywords:
+            if keyword in normalized:
+                # Exception: workplace safety questions
+                if any(safe in normalized for safe in ['safety', 'policy', 'procedure', 'prevent', 'report']):
+                    continue
+                return (
+                    "⚠️ **Concerning Language Detected**\n\n"
+                    "Your message contains language that may indicate a safety concern. "
+                    "If you're experiencing a safety issue or feel threatened, please contact your manager, "
+                    "HR department, or security immediately. You can also call emergency services if needed.\n\n"
+                    "For policy questions about workplace safety, please rephrase your question professionally."
+                )
+        
+        # Check for discriminatory language (if hate speech patterns exist)
+        hate_speech_keywords = ['racist', 'sexist', 'homophobic', 'transphobic', 'xenophobic']
+        for keyword in hate_speech_keywords:
+            if keyword in normalized:
+                # Exception: anti-discrimination policy questions
+                if any(policy in normalized for policy in ['policy', 'procedure', 'prevent', 'report', 'complaint']):
+                    continue
+                return (
+                    "⚠️ I noticed language that may be discriminatory or offensive. "
+                    "Our workplace values diversity, equity, and inclusion. "
+                    "If you're inquiring about discrimination policies or need to report a concern, "
+                    "please rephrase your question professionally, or contact HR directly for sensitive matters."
+                )
+        
+        return None
+    
     @agent
     def hr_assistant(self) -> Agent:
         """
@@ -322,11 +553,13 @@ class HrBot():
         """
         return Agent(
             config=self.agents_config['hr_assistant'],
-            tools=[self.hybrid_rag_tool],
+            tools=[self.hybrid_rag_tool, self.master_actions_tool],  # Both tools available
             llm=self.llm,
             verbose=True,
-            max_iter=5,  # Limit iterations for faster responses
+            max_iter=15,  # Increased to allow multiple tool calls if needed
             memory=False,  # Disable agent-level memory (relies on crew long-term memory)
+            allow_delegation=False,  # Single agent, no delegation needed
+            function_calling_llm=self.llm,  # Explicitly set function calling LLM
         )
     
     @task
@@ -353,16 +586,18 @@ class HrBot():
             cache=False,  # Use explicit response cache to avoid stale tool plans
         )
         hybrid_tool = self.hybrid_rag_tool
+        master_tool = self.master_actions_tool
 
-        return self._wrap_crew_with_sources(crew, hybrid_tool, self.long_term_memory, self.memory_db_path)
+        return self._wrap_crew_with_sources(crew, hybrid_tool, master_tool, self.long_term_memory, self.memory_db_path)
     
-    def _wrap_crew_with_sources(self, crew: Crew, hybrid_tool, memory, memory_db_path):
-        """Wraps crew with source tracking logic"""
+    def _wrap_crew_with_sources(self, crew: Crew, hybrid_tool, master_tool, memory, memory_db_path):
+        """Wraps crew with source tracking logic for both tools"""
 
         class CrewWithSources:
-            def __init__(self, inner, retrieval_tool, memory, memory_db_path: Optional[str]):
+            def __init__(self, inner, retrieval_tool, master_tool, memory, memory_db_path: Optional[str]):
                 self._inner = inner
                 self._hybrid_tool = retrieval_tool
+                self._master_tool = master_tool
                 self._memory = memory
                 self._memory_db_path = memory_db_path
 
@@ -380,37 +615,9 @@ class HrBot():
                     self._inject_memory_context(query, inputs)
                     kwargs["inputs"] = inputs
 
-                if query:
-                    try:
-                        retrieved_chunks = self._hybrid_tool.retriever.hybrid_search(query, top_k=8)
-                        if retrieved_chunks:
-                            query_terms = [t for t in re.split(r"[^a-z0-9]+", query.lower()) if t and len(t) > 2]
-                            context_snippets = []
-                            for idx, chunk in enumerate(retrieved_chunks[:4], 1):
-                                snippet = " ".join(chunk.content.strip().split())
-                                if len(snippet) > 600:
-                                    snippet = snippet[:600].rstrip() + "..."
-                                context_snippets.append(f"[{idx}] {chunk.source}: {snippet}")
-
-                            existing_context = inputs.get("context", "").strip()
-                            context_sections = []
-                            if existing_context:
-                                context_sections.append(existing_context)
-                            if context_snippets:
-                                retrieved_section = "Retrieved context:\n" + "\n".join(context_snippets)
-                                context_sections.append(retrieved_section)
-                            if context_sections:
-                                inputs["context"] = "\n\n".join(context_sections)
-                                kwargs["inputs"] = inputs
-
-                            sources = [f"[{idx}] {chunk.source}" for idx, chunk in enumerate(retrieved_chunks, 1)]
-                            try:
-                                object.__setattr__(self._hybrid_tool, '_last_sources', sources)
-                                self._hybrid_tool.retriever._last_sources = sources
-                            except Exception:
-                                pass
-                    except Exception:
-                        retrieved_chunks = []
+                # Remove pre-retrieval injection - let agent call the tool naturally
+                # This was causing the agent to output "Action: hr_document_search(...)" 
+                # as text instead of executing the tool
 
                 output = self._inner.kickoff(*args, **kwargs)
 
@@ -429,9 +636,45 @@ class HrBot():
                 output_text: Optional[str] = None
                 try:
                     output_text = str(output)
+                    
+                    # Collect sources from BOTH tools (hybrid RAG + Master Actions)
+                    rag_sources = self._hybrid_tool.last_sources() if hasattr(self._hybrid_tool, 'last_sources') else []
+                    action_sources = self._master_tool.last_sources() if hasattr(self._master_tool, 'last_sources') else []
+                    
+                    # Combine sources intelligently
+                    all_sources = []
+                    if action_sources:
+                        all_sources.extend(action_sources)
+                    if rag_sources:
+                        all_sources.extend(rag_sources)
+                    
+                    # Remove duplicates while preserving order
+                    sources = list(dict.fromkeys(all_sources))
+                    
+                    # Validation will be done in post-processing if needed
+                    # The tool itself handles NO_RELEVANT_DOCUMENTS case
+                    
+                    # Check if response indicates no information was found
+                    no_info_indicators = [
+                        "couldn't find any information",
+                        "couldn't find information",
+                        "couldn't find specific information", 
+                        "couldn't find relevant",
+                        "no information about",
+                        "don't have information",
+                        "doesn't appear to be covered",
+                        "not covered in our current",
+                        "contact your HR department",
+                        "please contact your HR",
+                        "recommend contacting HR"
+                    ]
+                    
+                    output_lower = output_text.lower()
+                    has_no_info = any(indicator in output_lower for indicator in no_info_indicators)
+                    
                     if "Sources:" not in output_text:
-                        sources = self._hybrid_tool.last_sources()
-                        if sources:
+                        # Only add sources if we actually found information
+                        if sources and not has_no_info:
                             sources_line = "Sources: " + ", ".join(sources)
                             separator = "\n" if output_text.endswith("\n") else "\n\n"
                             new_text = f"{output_text}{separator}{sources_line}"
@@ -498,7 +741,10 @@ class HrBot():
                 except Exception:
                     pass
                 try:
-                    sources_for_memory = self._hybrid_tool.last_sources()
+                    # Collect sources from both tools for memory persistence
+                    rag_sources = self._hybrid_tool.last_sources() if hasattr(self._hybrid_tool, 'last_sources') else []
+                    action_sources = self._master_tool.last_sources() if hasattr(self._master_tool, 'last_sources') else []
+                    sources_for_memory = list(dict.fromkeys(rag_sources + action_sources))
                 except Exception:
                     sources_for_memory = []
                 answer_text = None
@@ -644,4 +890,4 @@ class HrBot():
                 except Exception:
                     pass
 
-        return CrewWithSources(crew, hybrid_tool, self.long_term_memory, self.memory_db_path)
+        return CrewWithSources(crew, hybrid_tool, master_tool, self.long_term_memory, self.memory_db_path)

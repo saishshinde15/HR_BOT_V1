@@ -1,6 +1,6 @@
 """
-HR Assistant - Professional Enterprise UI
-Clean, modern interface for HR policy assistance
+Inara - Your HR Assistant
+Professional Enterprise UI - Clean, modern interface for HR policy assistance
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from hr_bot.crew import HrBot
 # CONFIGURATION
 # ============================================================================
 
-PAGE_TITLE = "HR Assistant"
+PAGE_TITLE = "Inara - HR Assistant"
 PAGE_ICON = "💼"
 DATA_DIR = Path("data").resolve()
 DEFAULT_PLACEHOLDER = "Ask me anything about HR policies, benefits, or procedures..."
@@ -1166,11 +1166,11 @@ def main() -> None:
             </svg>
         </div>
         <div>
-            <h1 style="margin: 0 !important; padding: 0 !important;">HR Assistant</h1>
+            <h1 style="margin: 0 !important; padding: 0 !important;">Inara</h1>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    st.caption("Your intelligent companion for HR policies, benefits, and workplace guidance — available 24/7")
+    st.caption("Your intelligent HR companion for policies, benefits, and workplace guidance — available 24/7")
     
     # Enhanced welcome message for first-time users
     if len(st.session_state.get("history", [])) == 0:

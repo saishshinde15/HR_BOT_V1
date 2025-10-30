@@ -348,7 +348,7 @@ class HrBot():
 
         if normalized in greetings:
             return (
-                "Hello! I'm your HR companion, ready to unpack policies, benefits, and anything HR-related whenever you are."
+                "Hello! I'm Inara, your HR companion, ready to unpack policies, benefits, and anything HR-related whenever you are."
             )
 
         if normalized in gratitude or (

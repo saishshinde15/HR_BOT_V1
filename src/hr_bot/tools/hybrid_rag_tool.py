@@ -390,10 +390,10 @@ class HybridRAGRetriever:
         # Save index hash
         self.index_hash = current_hash
         
+        print(f"✓ Index built with {len(self.documents)} chunks")
+        
         # Save indexes
         self._save_index(vector_store_path, bm25_path)
-        
-        print(f"✓ Index built with {len(self.documents)} chunks")
     
     def hybrid_search(self, query: str, top_k: int = None) -> List[SearchResult]:
         """

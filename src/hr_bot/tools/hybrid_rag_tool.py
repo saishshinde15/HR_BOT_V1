@@ -625,11 +625,11 @@ class HybridRAGToolInput(BaseModel):
     """Input schema for Hybrid RAG Tool"""
     query: str = Field(
         ...,
-        description="The search query to find relevant information from HR documents"
+        description="Search query string"
     )
     top_k: int = Field(
         default_factory=lambda: _get_env_int("TOP_K", 12, aliases=["TOP_K_RESULTS"]),
-        description="Number of top results to return (env TOP_K overrides, default: 12)"
+        description="Number of results (default 12)"
     )
 
 
@@ -648,7 +648,10 @@ class HybridRAGTool(BaseTool):
         "Use this tool to find information about company policies, procedures, employee benefits, "
         "leave policies, working arrangements, and other HR-related information. "
         "This tool is optimized for searching documents with tables and structured content. "
-        "Provide a clear, specific query to get the most relevant results."
+        "Provide a clear, specific query to get the most relevant results.\n\n"
+        "USAGE FORMAT (pass query as a STRING, not a dict):\n"
+        '{"query": "sick leave policy", "top_k": 5}\n'
+        '{"query": "how to apply for benefits", "top_k": 3}'
     )
     args_schema: type[BaseModel] = HybridRAGToolInput
     

@@ -101,28 +101,70 @@ class MasterActionsDatabase:
     
     def search_actions(self, query: str) -> List[ActionGuide]:
         """
-        Search for relevant actions based on query keywords
-        Uses fuzzy matching for better recall
+        Search for relevant actions based on query keywords with intelligent relevance filtering
+        Uses semantic keyword matching with multi-word phrase detection
         """
-        query_lower = query.lower()
+        query_lower = query.lower().strip()
         query_tokens = set(re.findall(r'\b\w+\b', query_lower))
+        
+        # Common stop words that shouldn't contribute to matching
+        stop_words = {
+            'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+            'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should',
+            'could', 'may', 'might', 'can', 'i', 'you', 'me', 'my', 'to', 'for',
+            'of', 'in', 'on', 'at', 'from', 'with', 'about', 'by', 'how', 'what',
+            'where', 'when', 'why', 'who', 'which'
+        }
+        
+        # Remove stop words for better matching
+        meaningful_tokens = query_tokens - stop_words
+        
+        # If no meaningful tokens remain, return empty (too vague)
+        if not meaningful_tokens:
+            return []
         
         matches = []
         for action in self.actions:
             # Calculate match score based on keyword overlap
             score = 0
-            for keyword in action.keywords:
-                keyword_tokens = set(re.findall(r'\b\w+\b', keyword.lower()))
-                overlap = len(query_tokens & keyword_tokens)
-                if overlap > 0:
-                    score += overlap
+            matched_keywords = []
             
-            if score > 0:
-                matches.append((score, action))
+            for keyword in action.keywords:
+                keyword_tokens = set(re.findall(r'\b\w+\b', keyword.lower())) - stop_words
+                
+                # Check for multi-word phrase match (higher weight)
+                if keyword in query_lower:
+                    score += len(keyword.split()) * 3  # 3 points per word in exact phrase
+                    matched_keywords.append(keyword)
+                else:
+                    # Token overlap (lower weight)
+                    overlap = len(meaningful_tokens & keyword_tokens)
+                    if overlap > 0:
+                        # Calculate relevance ratio: overlap / keyword_length
+                        relevance_ratio = overlap / max(len(keyword_tokens), 1)
+                        # Only count if at least 50% of keyword tokens match
+                        if relevance_ratio >= 0.5:
+                            score += overlap
+                            matched_keywords.append(keyword)
+            
+            # Apply minimum threshold: require at least one meaningful match
+            if score > 0 and matched_keywords:
+                matches.append((score, action, matched_keywords))
         
-        # Sort by score (descending) and return actions
+        # Sort by score (descending)
         matches.sort(key=lambda x: x[0], reverse=True)
-        return [action for _, action in matches]
+        
+        # Apply intelligent filtering: remove low-confidence matches
+        if matches:
+            best_score = matches[0][0]
+            # Only return matches within 40% of best score to avoid weak matches
+            filtered_matches = [
+                action for score, action, keywords in matches 
+                if score >= best_score * 0.4
+            ]
+            return filtered_matches
+        
+        return []
 
 
 class MasterActionsToolInput(BaseModel):

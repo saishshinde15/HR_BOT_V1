@@ -10,13 +10,17 @@ from crewai.memory import LongTermMemory
 from crewai.memory.long_term.long_term_memory_item import LongTermMemoryItem
 from crewai.memory.storage.ltm_sqlite_storage import LTMSQLiteStorage
 from typing import List, Optional
+from contextlib import contextmanager
 import hashlib
 import json
 import os
 import re
 import sqlite3
+import threading
+import time
 from datetime import datetime
 from dotenv import load_dotenv
+from botocore.exceptions import ClientError
 
 # Load environment variables from .env file
 load_dotenv()
@@ -26,27 +30,49 @@ from hr_bot.tools.master_actions_tool import MasterActionsTool
 from hr_bot.utils.cache import ResponseCache
 
 
-def remove_document_evidence_section(text: str) -> str:
-    """Strip any trailing 'Document Evidence' sections from model output."""
-    lines = text.splitlines()
-    cleaned_lines = []
-    skipping = False
-
+def remove_document_evidence_section(response: str) -> str:
+    """
+    Remove 'Document Evidence:' sections and 'Sources:' blocks from responses.
+    NUCLEAR OPTION: Aggressively remove ALL source mentions regardless of context.
+    
+    Args:
+        response: The raw response text from the agent
+        
+    Returns:
+        Cleaned response without ANY document evidence or source mentions
+    """
+    lines = response.split("\n")
+    filtered = []
+    skip_document_evidence = False
+    
     for line in lines:
         normalized = line.strip().lower()
-        if skipping:
-            if normalized.startswith("sources:"):
-                cleaned_lines.append(line)
-                skipping = False
+        
+        # Skip "Document Evidence:" sections
+        if normalized.startswith("document evidence:"):
+            skip_document_evidence = True
             continue
-
-        if normalized.startswith("document evidence"):
-            skipping = True
-            continue
-
-        cleaned_lines.append(line)
-
-    return "\n".join(cleaned_lines).rstrip()
+        
+        # **NUCLEAR OPTION**: Stop processing at ANY source mention
+        # This catches: "Sources:", "Source:", "I found this information in...", "I found this in...", etc.
+        if (normalized.startswith("sources:") or 
+            normalized.startswith("source:") or 
+            "i found this information in" in normalized or 
+            "i found this in" in normalized or
+            "found this information in" in normalized or
+            "found this in" in normalized or
+            normalized.startswith("i found this")):
+            # STOP - don't include this line or anything after it
+            break
+        
+        # Stop skipping document evidence when we hit another section
+        if skip_document_evidence and (normalized.startswith("sources:") or normalized.startswith("source:")):
+            skip_document_evidence = False
+        
+        if not skip_document_evidence:
+            filtered.append(line)
+    
+    return "\n".join(filtered).strip()
 
 
 def validate_response_against_sources(response_text: str, sources: List[str], retrieved_content: str, original_query: str) -> dict:
@@ -157,7 +183,7 @@ class HrBot():
     """
     Production-ready HR Bot with empathetic, human-like responses:
     - Emotionally intelligent and empathetic communication
-    - Amazon Bedrock (Amazon Nova Lite) LLM for natural, conversational responses
+    - Amazon Bedrock (Amazon Nova Lite v1) LLM for fast, cost-efficient responses
     - Detailed, accurate answers with proper source citation
     """
 
@@ -182,7 +208,7 @@ class HrBot():
             os.environ["AWS_DEFAULT_REGION"] = aws_region
         
         llm_kwargs = {
-            "model": os.getenv("BEDROCK_MODEL", "bedrock/amazon.nova-pro-v1:0"),
+            "model": os.getenv("BEDROCK_MODEL", "bedrock/amazon.nova-lite-v1:0"),
             "temperature": 0.7,
             "max_tokens": 4000,
         }
@@ -221,6 +247,9 @@ class HrBot():
         }
         self.embedder_config = embedder_config if embedder_config["config"] else None
 
+        # Initialize database lock for thread-safe SQLite access
+        self._db_lock = threading.RLock()
+
         # Configure long-term memory storage
         self.memory_storage_dir = os.path.join(project_root, "storage")
         os.makedirs(self.memory_storage_dir, exist_ok=True)
@@ -241,6 +270,30 @@ class HrBot():
             similarity_threshold=cache_similarity
         )
         print(f"✅ Semantic caching enabled (TTL: {cache_ttl_hours}h, Similarity: {cache_similarity:.0%})")
+    
+    @contextmanager
+    def _get_db_connection(self):
+        """
+        Thread-safe context manager for SQLite database connections.
+        
+        Yields:
+            sqlite3.Connection: Database connection with threading support
+            
+        Example:
+            with self._get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM memories")
+        """
+        with self._db_lock:
+            conn = sqlite3.connect(
+                self.memory_db_path,
+                timeout=30.0,  # Wait up to 30s instead of failing
+                check_same_thread=False  # Allow multi-threading
+            )
+            try:
+                yield conn
+            finally:
+                conn.close()
     
     def query_with_cache(self, query: str, context: str = "") -> str:
         """
@@ -268,13 +321,41 @@ class HrBot():
         small_talk_response = self._small_talk_response(query, context)
         if small_talk_response:
             print("💬 SMALL TALK - Skipping retrieval for conversational pleasantries.")
-            self.response_cache.set(query, small_talk_response, context)
-            return small_talk_response
+            # CRITICAL: Apply source filtering to small talk responses too
+            formatted_small_talk = remove_document_evidence_section(small_talk_response)
+            self.response_cache.set(query, formatted_small_talk, context)
+            return formatted_small_talk
 
-        # Cache miss - execute crew with full memory
+        # Cache miss - execute crew with full memory and retry logic
         print("🔄 CACHE MISS - Executing crew...")
         inputs = {"query": query, "context": context}
-        result = self.crew().kickoff(inputs=inputs)
+        
+        # Retry logic for AWS Bedrock rate limiting
+        max_retries = 3
+        retry_delays = [1, 2, 4]  # Exponential backoff: 1s, 2s, 4s
+        
+        for attempt in range(max_retries):
+            try:
+                result = self.crew().kickoff(inputs=inputs)
+                break  # Success, exit retry loop
+            except ClientError as e:
+                error_code = e.response.get('Error', {}).get('Code', '')
+                if error_code in ['ThrottlingException', 'TooManyRequestsException']:
+                    if attempt < max_retries - 1:
+                        delay = retry_delays[attempt]
+                        print(f"⏳ AWS rate limit hit, retrying in {delay}s... (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(delay)
+                    else:
+                        # Max retries reached
+                        print(f"❌ AWS rate limit exceeded after {max_retries} attempts")
+                        return "I'm experiencing high traffic right now. Please try again in a moment."
+                else:
+                    # Not a rate limit error, re-raise
+                    raise
+            except Exception as e:
+                # Unexpected error, re-raise
+                print(f"❌ Unexpected error during crew execution: {e}")
+                raise
         
         # Format and cache response
         response_text = str(result.raw) if hasattr(result, 'raw') else str(result)
@@ -397,6 +478,16 @@ class HrBot():
             "leave",
             "benefit",
             "procedure",
+            "payslip",
+            "salary",
+            "training",
+            "profile",
+            "details",
+            "balance",
+            "drug",
+            "test",
+            "background",
+            "check",
             "how",
             "what",
             "when",
@@ -407,6 +498,11 @@ class HrBot():
             "should",
             "need",
             "help",
+            "apply",
+            "download",
+            "update",
+            "enroll",
+            "view",
         ]
         if question_mark:
             return True
@@ -619,7 +715,42 @@ class HrBot():
                 # This was causing the agent to output "Action: hr_document_search(...)" 
                 # as text instead of executing the tool
 
-                output = self._inner.kickoff(*args, **kwargs)
+                # Retry logic for Nova Lite empty responses
+                max_retries = 2
+                retry_count = 0
+                output = None
+                
+                while retry_count <= max_retries:
+                    try:
+                        output = self._inner.kickoff(*args, **kwargs)
+                        if output and (hasattr(output, 'raw') and output.raw) or (isinstance(output, str) and output.strip()):
+                            break  # Valid response received
+                        else:
+                            retry_count += 1
+                            if retry_count <= max_retries:
+                                print(f"⚠️  Empty response from LLM, retrying ({retry_count}/{max_retries})...")
+                                time.sleep(1)  # Brief delay before retry
+                    except ValueError as e:
+                        if "Invalid response from LLM" in str(e) and retry_count < max_retries:
+                            retry_count += 1
+                            print(f"⚠️  LLM error, retrying ({retry_count}/{max_retries})...")
+                            time.sleep(1)
+                        else:
+                            raise
+                
+                # If still no valid output after retries, use fallback
+                if not output or (hasattr(output, 'raw') and not output.raw) or (isinstance(output, str) and not output.strip()):
+                    fallback_msg = "I apologize, but I'm having trouble processing that request right now. Could you please rephrase your question or try again?"
+                    
+                    class _FallbackWrapper:
+                        def __init__(self, text: str):
+                            self.raw = text
+                            self.final_output = text
+                            self.tasks_output = []
+                        def __str__(self) -> str:
+                            return self.raw
+                    
+                    output = _FallbackWrapper(fallback_msg)
 
                 if isinstance(output, str):
                     class _OutputWrapper:
@@ -636,6 +767,15 @@ class HrBot():
                 output_text: Optional[str] = None
                 try:
                     output_text = str(output)
+                    
+                    # CRITICAL: Clean agent reasoning leaks (exposed Thought:/Observation:/Action: text)
+                    output_text = self._clean_agent_reasoning_leaks(output_text)
+                    
+                    # Update output object with cleaned text
+                    if hasattr(output, "raw"):
+                        output.raw = output_text
+                    if hasattr(output, "final_output"):
+                        output.final_output = output_text
                     
                     # Collect sources from BOTH tools (hybrid RAG + Master Actions)
                     rag_sources = self._hybrid_tool.last_sources() if hasattr(self._hybrid_tool, 'last_sources') else []
@@ -766,6 +906,52 @@ class HrBot():
             def __getattr__(self, item):
                 return getattr(self._inner, item)
 
+            def _clean_agent_reasoning_leaks(self, text: str) -> str:
+                """
+                Remove exposed agent reasoning (Thought:/Observation:/Action:) from responses.
+                This prevents users from seeing internal agent workflow when tools fail.
+                """
+                if not text:
+                    return text
+                
+                # Pattern 1: Detect raw reasoning blocks (starts with "---" or "Thought:")
+                reasoning_markers = [
+                    "---\nThought:",
+                    "---\nAction:",
+                    "---\nObservation:",
+                    "\nThought:",
+                    "\nAction:",
+                    "\nObservation:",
+                ]
+                
+                has_reasoning_leak = any(marker in text for marker in reasoning_markers)
+                
+                if has_reasoning_leak:
+                    # Extract everything BEFORE the first reasoning leak
+                    lines = text.split('\n')
+                    clean_lines = []
+                    
+                    for line in lines:
+                        # Stop at first reasoning marker
+                        if line.strip().startswith(('---', 'Thought:', 'Action:', 'Observation:')):
+                            break
+                        clean_lines.append(line)
+                    
+                    cleaned_text = '\n'.join(clean_lines).strip()
+                    
+                    # If nothing left after cleaning, provide fallback message
+                    if not cleaned_text or len(cleaned_text) < 50:
+                        return (
+                            "I apologize, but I encountered an issue while processing your request. "
+                            "This might be due to unclear search results or a technical issue. "
+                            "Please try rephrasing your question, or contact your HR department directly for assistance.\n\n"
+                            "Is there anything else I can help you with?"
+                        )
+                    
+                    return cleaned_text
+                
+                return text
+
             def _inject_memory_context(self, query: str, inputs: dict) -> None:
                 """Inject concise memory context to avoid overwhelming prompt"""
                 memories = self._load_recent_memories(query, limit=3)  # Reduced from 6 to 3
@@ -805,7 +991,7 @@ class HrBot():
                 if not self._memory_db_path:
                     return []
                 try:
-                    with sqlite3.connect(self._memory_db_path) as conn:
+                    with self._get_db_connection() as conn:
                         cursor = conn.cursor()
                         cursor.execute(
                             """
@@ -867,7 +1053,7 @@ class HrBot():
                 }
                 if self._memory_db_path:
                     try:
-                        with sqlite3.connect(self._memory_db_path) as conn:
+                        with self._get_db_connection() as conn:
                             cursor = conn.cursor()
                             cursor.execute(
                                 "SELECT 1 FROM long_term_memories WHERE metadata LIKE ? LIMIT 1",

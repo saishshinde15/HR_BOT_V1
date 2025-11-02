@@ -5,6 +5,7 @@ Uses similarity matching instead of exact string matching for much higher cache 
 
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -56,6 +57,9 @@ class ResponseCache:
         self.ttl = timedelta(hours=ttl_hours)
         self.max_memory_items = max_memory_items
         self.similarity_threshold = similarity_threshold
+        
+        # Memory safety: Limit query index size to prevent RAM exhaustion
+        self.max_index_entries = int(os.getenv("CACHE_MAX_INDEX_ENTRIES", "5000"))
         
         # In-memory cache for hot data with query keywords
         self.memory_cache: Dict[str, Dict[str, Any]] = {}
@@ -152,10 +156,22 @@ class ResponseCache:
         """Build index of all cached queries for fast similarity search"""
         self.query_index = []
         
+        # Get all cache files sorted by modification time (newest first)
+        cache_files = []
         for cache_file in self.cache_dir.glob("*.json"):
             if cache_file.name == "cache_stats.json":
                 continue
-            
+            cache_files.append(cache_file)
+        
+        # Sort by modification time, keep only the newest entries
+        cache_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+        cache_files_to_index = cache_files[:self.max_index_entries]
+        
+        # If we're limiting, log how many we're skipping
+        if len(cache_files) > self.max_index_entries:
+            logger.warning(f"⚠️  Cache index limited to {self.max_index_entries} entries (skipping {len(cache_files) - self.max_index_entries} oldest files)")
+        
+        for cache_file in cache_files_to_index:
             try:
                 with open(cache_file, 'r', encoding='utf-8') as f:
                     cached = json.load(f)
@@ -165,6 +181,13 @@ class ResponseCache:
                     cache_key = cache_file.stem
                     keywords = self._extract_keywords(query)
                     self.query_index.append((cache_key, query, keywords))
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
+                logger.error(f"🗑️  Corrupted cache file detected: {cache_file.name} - {e}")
+                try:
+                    cache_file.unlink()  # Delete corrupted file
+                    logger.info(f"✅ Deleted corrupted cache file: {cache_file.name}")
+                except Exception as del_error:
+                    logger.error(f"Failed to delete corrupted file {cache_file.name}: {del_error}")
             except Exception as e:
                 logger.error(f"Error indexing cache file {cache_file}: {e}")
         
@@ -250,9 +273,12 @@ class ResponseCache:
                     # Expired, delete file
                     cache_file.unlink()
                     logger.debug(f"🗑️ Deleted expired cache: {cache_key}")
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
+                logger.error(f"🗑️  Corrupted cache file detected: {cache_key} - {e}")
+                cache_file.unlink(missing_ok=True)  # Delete corrupted file
+                logger.info(f"✅ Deleted corrupted cache file: {cache_key}")
             except Exception as e:
                 logger.error(f"Error reading cache {cache_key}: {e}")
-                # Delete corrupted cache file
                 cache_file.unlink(missing_ok=True)
         
         # PHASE 3: Semantic similarity search (fuzzy matching - ~50ms)
@@ -303,6 +329,10 @@ class ResponseCache:
                     # Expired
                     match_file.unlink()
                     logger.debug(f"🗑️ Deleted expired semantic match: {best_match_key}")
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
+                logger.error(f"🗑️  Corrupted cache file detected: {best_match_key} - {e}")
+                match_file.unlink(missing_ok=True)  # Delete corrupted file
+                logger.info(f"✅ Deleted corrupted cache file: {best_match_key}")
             except Exception as e:
                 logger.error(f"Error reading semantic match {best_match_key}: {e}")
         else:
@@ -328,6 +358,13 @@ class ResponseCache:
         if self._is_tool_artifact(response):
             logger.debug(f"⏭️  Skipping cache for tool-only transcript: {query[:50]}...")
             # Ensure any previously cached artifact is removed
+            self._remove_cache_entry(cache_key)
+            return
+
+        # Validate response quality - reject empty/short responses
+        if not response or len(response.strip()) < 20:
+            logger.warning(f"⚠️  Rejecting invalid response for caching (empty or <20 chars): {query[:50]}...")
+            # Remove any existing cache entry to prevent stale data
             self._remove_cache_entry(cache_key)
             return
 

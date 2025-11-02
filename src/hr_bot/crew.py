@@ -359,12 +359,13 @@ class HrBot():
         
         # Format and cache response
         response_text = str(result.raw) if hasattr(result, 'raw') else str(result)
-        formatted_response = remove_document_evidence_section(response_text)
+        # NOTE: Do NOT remove sources for regular HR queries - only for small talk
+        # Sources are preserved to show users where information came from
         
         # Save to cache for future queries
-        self.response_cache.set(query, formatted_response, context)
+        self.response_cache.set(query, response_text, context)
         
-        return formatted_response
+        return response_text
     
     def get_cache_stats(self) -> dict:
         """Get cache performance statistics"""

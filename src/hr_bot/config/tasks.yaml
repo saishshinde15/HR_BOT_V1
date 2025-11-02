@@ -53,7 +53,8 @@ answer_hr_query:
        - Comprehensive answer with headings/bullets but conversational tone
        - Numbered next steps with encouraging phrases
        - Supportive, warm closing that invites further questions
-       - Sources mentioned naturally: "I found this information in the Master Actions Guide and Benefits Policy document."
+       - **Sources:** section at the end with format "Sources: Document_Name • Another_Document"
+         ⚠️ DO NOT say "I found this information in..." - just list sources cleanly at the end
     
     5. **CRITICAL - Policy Section Rules:**
        - ONLY include "Policy Information" section if hr_document_search found RELEVANT documents

@@ -908,28 +908,30 @@ def clean_markdown_artifacts(text: str) -> str:
 
 
 def remove_document_evidence_section(text: str) -> str:
-    """CRITICAL: Remove any 'Document Evidence' section that appears after sources."""
+    """CRITICAL: Remove only 'Document Evidence' section, preserve sources."""
     lines = text.splitlines()
     result_lines = []
-    found_sources = False
-    skip_remaining = False
+    in_document_evidence = False
     
     for line in lines:
-        # Check if we hit the sources line
-        if line.lower().startswith("sources:") or "**sources:**" in line.lower():
-            found_sources = True
-            result_lines.append(line)
-            skip_remaining = True  # Skip everything after sources
+        # Check if we hit a "Document Evidence" section heading
+        if "document evidence" in line.lower() and ("##" in line or "**" in line):
+            in_document_evidence = True
+            continue  # Skip the heading line
+        
+        # If we're in Document Evidence section, skip until we hit sources or end
+        if in_document_evidence:
+            # Stop skipping when we hit sources or another major section
+            if (line.lower().startswith("sources:") or 
+                "**sources:**" in line.lower() or
+                (line.startswith("##") and "document evidence" not in line.lower())):
+                in_document_evidence = False
+                result_lines.append(line)  # Keep this line
+            # Otherwise skip (we're still in Document Evidence section)
             continue
         
-        # If we haven't found sources yet, or we're before sources, keep the line
-        if not skip_remaining:
-            # Skip any line with "Document Evidence" heading
-            if "document evidence" in line.lower() and ("##" in line or "**" in line):
-                skip_remaining = True
-                continue
-            result_lines.append(line)
-        # After sources, skip everything (including Document Evidence section)
+        # Keep all other lines (including sources and source documents)
+        result_lines.append(line)
     
     return "\n".join(result_lines)
 

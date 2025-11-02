@@ -726,13 +726,15 @@ class HybridRAGTool(BaseTool):
             for idx, result in enumerate(results, 1):
                 output += f"[{idx}] (Score: {result.score:.3f}) {result.source}\n"
                 output += f"{result.content}\n\n"
-                sources_accum.append(f"[{idx}] {result.source}")
+                # Collect source filenames WITHOUT numbering for deduplication
+                sources_accum.append(result.source)
 
+            # Get unique source filenames (removes duplicates from multiple chunks of same document)
             unique_sources = list(dict.fromkeys(sources_accum))
             # Store sources at both tool and retriever level for compatibility
             object.__setattr__(self, '_last_sources', unique_sources)
             self.retriever._last_sources = unique_sources
-            output += "Sources: " + ", ".join(unique_sources) + "\n"
+            output += "Sources: " + " • ".join(unique_sources) + "\n"
             
             return output
             

@@ -71,6 +71,9 @@ answer_hr_query:
     - For technical/IT questions: Redirect to IT support, clarify HR scope
     - **If tool returns "NO_RELEVANT_DOCUMENTS" or fails:** Use the exact fallback message specified in your backstory.
       DO NOT try to improvise, DO NOT add suggestions, just use the fallback message and stop.
+    - **🔧 If tool encounters a technical error/timeout/failure:** ALWAYS instruct user to click the '🗑️ Clear Cache' 
+      button in the top right corner, then retry their question. This ensures a fresh search and prevents cached errors.
+      Example: "I encountered a technical issue. Please click the '🗑️ Clear Cache' button in the top right corner, then ask your question again."
     
     **MANDATORY KEYWORD REQUIREMENTS (Self-check before submitting final answer):**
     - Eligibility questions → Response MUST contain "eligible" or "eligibility" 

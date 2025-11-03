@@ -1,7 +1,7 @@
 [project]
 name = "hr_bot"
-version = "4.0"
-description = "Production-ready HR Bot with Hybrid RAG and API Deck integration"
+version = "4.1"
+description = "An HR assistant powered by AWS Bedrock Nova Lite v1 and CrewAI"
 authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = ">=3.10,<3.14"
 dependencies = [

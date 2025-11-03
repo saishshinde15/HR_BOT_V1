@@ -113,6 +113,64 @@ MINIMAL_CSS = """
         box-shadow: 0 8px 28px rgba(120, 119, 198, 0.2), 0 4px 8px rgba(0, 0, 0, 0.08);
     }
     
+    /* ==================== CLEAR CACHE BUTTON - ELEGANT & FIXED TOP RIGHT ==================== */
+    .clear-cache-container {
+        position: fixed;
+        top: 1.5rem;
+        right: 5.5rem;  /* Position to the left of theme toggle */
+        z-index: 9999;
+        animation: fadeIn 0.6s ease-out 0.5s both;
+    }
+    
+    /* Hide default Streamlit button styling */
+    .clear-cache-container button {
+        all: unset;
+        width: auto;
+        height: 48px;
+        padding: 0 1.25rem;
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.15) 0%, rgba(192, 57, 43, 0.1) 100%);
+        border: 1.5px solid rgba(231, 76, 60, 0.4);
+        backdrop-filter: blur(12px);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 16px rgba(231, 76, 60, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #e74c3c;
+        letter-spacing: 0.01em;
+    }
+    
+    .clear-cache-container button:hover {
+        transform: translateY(-2px) scale(1.02);
+        border-color: rgba(231, 76, 60, 0.6);
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.25) 0%, rgba(192, 57, 43, 0.2) 100%);
+        box-shadow: 0 8px 28px rgba(231, 76, 60, 0.3), 0 4px 8px rgba(0, 0, 0, 0.15);
+        color: #c0392b;
+    }
+    
+    .clear-cache-container button:active {
+        transform: translateY(0) scale(0.98);
+    }
+    
+    .light-theme .clear-cache-container button {
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.12) 0%, rgba(192, 57, 43, 0.08) 100%);
+        border: 1.5px solid rgba(231, 76, 60, 0.3);
+        box-shadow: 0 4px 16px rgba(231, 76, 60, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05);
+        color: #c0392b;
+    }
+    
+    .light-theme .clear-cache-container button:hover {
+        background: linear-gradient(135deg, rgba(231, 76, 60, 0.2) 0%, rgba(192, 57, 43, 0.15) 100%);
+        box-shadow: 0 8px 28px rgba(231, 76, 60, 0.2), 0 4px 8px rgba(0, 0, 0, 0.08);
+        color: #a93226;
+    }
+    
     /* ==================== FEEDBACK BUTTONS - ELEGANT DESIGN ==================== */
     .assistant-message-container {
         background: var(--card-bg);
@@ -1199,10 +1257,35 @@ def main() -> None:
         st.session_state["pending_response"] = None
     if "warm_future" not in st.session_state:
         st.session_state["warm_future"] = None
+    if "cache_cleared_msg" not in st.session_state:
+        st.session_state["cache_cleared_msg"] = None
 
     # Load resources
     bot = load_bot()
     executor = get_executor()
+    
+    # ============================================================================
+    # CLEAR CACHE BUTTON - Elegant fixed position top right
+    # ============================================================================
+    # Create container for the button with custom styling
+    clear_cache_container = st.container()
+    with clear_cache_container:
+        st.markdown('<div class="clear-cache-container">', unsafe_allow_html=True)
+        if st.button("🗑️ Clear Cache", key="clear_cache_btn", help="Clear cached responses. Use this if you get a technical error and want to retry your query."):
+            try:
+                bot.response_cache.clear_all()
+                st.session_state["cache_cleared_msg"] = "✅ Cache cleared successfully! You can now retry your query."
+                _rerun()
+            except Exception as e:
+                st.session_state["cache_cleared_msg"] = f"❌ Error clearing cache: {e}"
+                _rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Show cache cleared message if present
+    if st.session_state["cache_cleared_msg"]:
+        st.success(st.session_state["cache_cleared_msg"])
+        # Clear the message after showing it once
+        st.session_state["cache_cleared_msg"] = None
 
     # Background warmup
     if st.session_state["warm_future"] is None:
@@ -1224,7 +1307,9 @@ def main() -> None:
                 del st.session_state.pending_response
                 _rerun()
             except Exception as e:
-                st.error(f"Error: {e}")
+                # Show error with cache clear suggestion
+                st.error(f"⚠️ Technical Error: {e}")
+                st.warning("💡 **Tip:** This error response has been cached. To retry your query successfully, please click the '🗑️ Clear Cache' button in the top right corner, then ask your question again.")
                 del st.session_state.pending_response
                 _rerun()
         else:

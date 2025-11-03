@@ -362,8 +362,20 @@ class HrBot():
         # NOTE: Do NOT remove sources for regular HR queries - only for small talk
         # Sources are preserved to show users where information came from
         
-        # Save to cache for future queries
-        self.response_cache.set(query, response_text, context)
+        # ⚠️ CRITICAL: Do NOT cache technical failure messages
+        # If a tool call fails, we want to retry on next query, not serve cached error
+        is_technical_failure = (
+            "technical issue" in response_text.lower() or
+            "tool failure" in response_text.lower() or
+            "encountered an issue" in response_text.lower() or
+            "Clear Cache" in response_text  # Our fallback message suggests clearing cache
+        )
+        
+        if not is_technical_failure:
+            # Save to cache for future queries (only successful responses)
+            self.response_cache.set(query, response_text, context)
+        else:
+            print(f"⚠️  Skipping cache for technical failure response: {query[:50]}...")
         
         return response_text
     
@@ -943,9 +955,11 @@ class HrBot():
                     # If nothing left after cleaning, provide fallback message
                     if not cleaned_text or len(cleaned_text) < 50:
                         return (
-                            "I apologize, but I encountered an issue while processing your request. "
-                            "This might be due to unclear search results or a technical issue. "
-                            "Please try rephrasing your question, or contact your HR department directly for assistance.\n\n"
+                            "I apologize, but I encountered a technical issue while processing your request. "
+                            "This might be due to unclear search results or a tool failure.\n\n"
+                            "**💡 Tip:** Click the '🗑️ Clear Cache' button in the top right corner, then try asking your question again. "
+                            "This will ensure a fresh search is performed.\n\n"
+                            "Alternatively, you can try rephrasing your question, or contact your HR department directly for assistance.\n\n"
                             "Is there anything else I can help you with?"
                         )
                     

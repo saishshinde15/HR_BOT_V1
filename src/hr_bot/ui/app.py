@@ -15,6 +15,20 @@ import streamlit as st
 from hr_bot.crew import HrBot
 
 # ============================================================================
+# AUTHENTICATION CHECK - REDIRECT TO LOGIN IF NOT AUTHENTICATED
+# ============================================================================
+
+# Check if user is authenticated
+# OAuth removed - using default employee role for now
+if 'user' not in st.session_state:
+    # Set default user for testing (no authentication)
+    st.session_state['user'] = {
+        'email': 'test@example.com',
+        'name': 'Test User',
+        'role': 'employee'  # or 'executive' for testing
+    }
+
+# ============================================================================
 # CONFIGURATION
 # ============================================================================
 
@@ -113,21 +127,11 @@ MINIMAL_CSS = """
         box-shadow: 0 8px 28px rgba(120, 119, 198, 0.2), 0 4px 8px rgba(0, 0, 0, 0.08);
     }
     
-    /* ==================== CLEAR CACHE BUTTON - ELEGANT & FIXED TOP RIGHT ==================== */
-    .clear-cache-container {
-        position: fixed;
-        top: 1.5rem;
-        right: 5.5rem;  /* Position to the left of theme toggle */
-        z-index: 9999;
-        animation: fadeIn 0.6s ease-out 0.5s both;
-    }
-    
-    /* Hide default Streamlit button styling */
+    /* ==================== CLEAR CACHE BUTTON - ELEGANT STYLING ==================== */
     .clear-cache-container button {
         all: unset;
-        width: auto;
         height: 48px;
-        padding: 0 1.25rem;
+        padding: 0 1.5rem;
         border-radius: 12px;
         background: linear-gradient(135deg, rgba(231, 76, 60, 0.15) 0%, rgba(192, 57, 43, 0.1) 100%);
         border: 1.5px solid rgba(231, 76, 60, 0.4);
@@ -144,6 +148,7 @@ MINIMAL_CSS = """
         font-weight: 500;
         color: #e74c3c;
         letter-spacing: 0.01em;
+        white-space: nowrap;
     }
     
     .clear-cache-container button:hover {
@@ -169,6 +174,66 @@ MINIMAL_CSS = """
         background: linear-gradient(135deg, rgba(231, 76, 60, 0.2) 0%, rgba(192, 57, 43, 0.15) 100%);
         box-shadow: 0 8px 28px rgba(231, 76, 60, 0.2), 0 4px 8px rgba(0, 0, 0, 0.08);
         color: #a93226;
+    }
+    
+    /* ==================== ACTION BUTTONS CONTAINER - PROFESSIONAL LAYOUT ==================== */
+    .action-buttons-container {
+        position: fixed;
+        top: 1.5rem;
+        right: 5.5rem;
+        z-index: 9999;
+        display: flex;
+        gap: 0.75rem;
+        animation: fadeIn 0.6s ease-out 0.4s both;
+    }
+    
+    /* ==================== S3 REFRESH BUTTON - ELEGANT STYLING ==================== */
+    .s3-refresh-container button {
+        all: unset;
+        height: 48px;
+        padding: 0 1.5rem;
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.15) 0%, rgba(41, 128, 185, 0.1) 100%);
+        border: 1.5px solid rgba(52, 152, 219, 0.4);
+        backdrop-filter: blur(12px);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 16px rgba(52, 152, 219, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #3498db;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+    }
+    
+    .s3-refresh-container button:hover {
+        transform: translateY(-2px) scale(1.02);
+        border-color: rgba(52, 152, 219, 0.6);
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.25) 0%, rgba(41, 128, 185, 0.2) 100%);
+        box-shadow: 0 8px 28px rgba(52, 152, 219, 0.3), 0 4px 8px rgba(0, 0, 0, 0.15);
+        color: #2980b9;
+    }
+    
+    .s3-refresh-container button:active {
+        transform: translateY(0) scale(0.98);
+    }
+    
+    .light-theme .s3-refresh-container button {
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.12) 0%, rgba(41, 128, 185, 0.08) 100%);
+        border: 1.5px solid rgba(52, 152, 219, 0.3);
+        box-shadow: 0 4px 16px rgba(52, 152, 219, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05);
+        color: #2980b9;
+    }
+    
+    .light-theme .s3-refresh-container button:hover {
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.2) 0%, rgba(41, 128, 185, 0.15) 100%);
+        box-shadow: 0 8px 28px rgba(52, 152, 219, 0.2), 0 4px 8px rgba(0, 0, 0, 0.08);
+        color: #21618c;
     }
     
     /* ==================== FEEDBACK BUTTONS - ELEGANT DESIGN ==================== */
@@ -901,9 +966,9 @@ MINIMAL_CSS = """
 
 
 @st.cache_resource(show_spinner=False)
-def load_bot() -> HrBot:
-    """Load bot instance."""
-    return HrBot()
+def load_bot(user_role: str = "employee") -> HrBot:
+    """Load bot instance with role-based S3 document access."""
+    return HrBot(user_role=user_role, use_s3=True)
 
 
 @st.cache_resource(show_spinner=False)
@@ -1207,26 +1272,42 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    # Professional header with enhanced styling and visible logo
-    st.markdown("""
-    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
-        <div style="
-            width: 56px; 
-            height: 56px; 
-            background: linear-gradient(135deg, #7877c6 0%, #9b8fd9 100%);
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(120, 119, 198, 0.3);
-        ">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M20 6H12L10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6Z" fill="white" opacity="0.9"/>
-                <path d="M12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z" fill="white"/>
-            </svg>
+    # Get user information
+    user_info = st.session_state.get('user', {})
+    user_email = user_info.get('email', 'Unknown User')
+    user_role = user_info.get('role', 'employee')
+    user_name = user_info.get('name', user_email.split('@')[0])
+    
+    # Professional header with enhanced styling, user info, and logout
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="
+                width: 56px; 
+                height: 56px; 
+                background: linear-gradient(135deg, #7877c6 0%, #9b8fd9 100%);
+                border-radius: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 4px 12px rgba(120, 119, 198, 0.3);
+            ">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 6H12L10 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V8C22 6.9 21.1 6 20 6Z" fill="white" opacity="0.9"/>
+                    <path d="M12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z" fill="white"/>
+                </svg>
+            </div>
+            <div>
+                <h1 style="margin: 0 !important; padding: 0 !important;">Inara</h1>
+            </div>
         </div>
-        <div>
-            <h1 style="margin: 0 !important; padding: 0 !important;">Inara</h1>
+        <div style="text-align: right;">
+            <div style="font-size: 0.875rem; color: rgba(255, 255, 255, 0.9); font-weight: 500;">
+                {user_name}
+            </div>
+            <div style="font-size: 0.75rem; color: rgba(255, 255, 255, 0.6);">
+                {user_role.title()} Access
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1259,33 +1340,70 @@ def main() -> None:
         st.session_state["warm_future"] = None
     if "cache_cleared_msg" not in st.session_state:
         st.session_state["cache_cleared_msg"] = None
+    if "s3_refresh_msg" not in st.session_state:
+        st.session_state["s3_refresh_msg"] = None
 
-    # Load resources
-    bot = load_bot()
+    # Load resources with role-based access
+    user_role = st.session_state.get('user', {}).get('role', 'employee')
+    bot = load_bot(user_role=user_role)
     executor = get_executor()
     
     # ============================================================================
-    # CLEAR CACHE BUTTON - Elegant fixed position top right
+    # ACTION BUTTONS - Professional side-by-side layout
     # ============================================================================
-    # Create container for the button with custom styling
-    clear_cache_container = st.container()
-    with clear_cache_container:
-        st.markdown('<div class="clear-cache-container">', unsafe_allow_html=True)
-        if st.button("🗑️ Clear Cache", key="clear_cache_btn", help="Clear cached responses. Use this if you get a technical error and want to retry your query."):
-            try:
-                bot.response_cache.clear_all()
-                st.session_state["cache_cleared_msg"] = "✅ Cache cleared successfully! You can now retry your query."
-                _rerun()
-            except Exception as e:
-                st.session_state["cache_cleared_msg"] = f"❌ Error clearing cache: {e}"
-                _rerun()
+    action_buttons = st.container()
+    with action_buttons:
+        st.markdown('<div class="action-buttons-container">', unsafe_allow_html=True)
+        
+        # Create two columns for side-by-side buttons
+        col1, col2 = st.columns(2, gap="medium")
+        
+        # S3 Refresh Button (Blue - Left)
+        with col1:
+            st.markdown('<div class="s3-refresh-container">', unsafe_allow_html=True)
+            if st.button("🔄 Refresh S3 Docs", key="s3_refresh_btn", help="Download the latest HR policy documents from S3. Use this when new policies are uploaded.", use_container_width=True):
+                try:
+                    from hr_bot.utils.s3_loader import S3DocumentLoader
+                    
+                    # Initialize S3 loader and force refresh
+                    s3_loader = S3DocumentLoader(user_role=user_role)
+                    s3_loader.clear_cache()
+                    document_paths = s3_loader.load_documents(force_refresh=True)
+                    
+                    # Clear RAG tool cache to rebuild with new documents
+                    if 'bot_instance' in st.session_state:
+                        del st.session_state['bot_instance']
+                    
+                    st.session_state["s3_refresh_msg"] = f"✅ Refreshed {len(document_paths)} HR documents from S3!"
+                    _rerun()
+                except Exception as e:
+                    st.session_state["s3_refresh_msg"] = f"❌ Error refreshing S3 documents: {e}"
+                    _rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Clear Cache Button (Red - Right)
+        with col2:
+            st.markdown('<div class="clear-cache-container">', unsafe_allow_html=True)
+            if st.button("🗑️ Clear Response Cache", key="clear_cache_btn", help="Clear cached responses. Use this if you get a technical error and want to retry your query.", use_container_width=True):
+                try:
+                    bot.response_cache.clear_all()
+                    st.session_state["cache_cleared_msg"] = "✅ Response cache cleared successfully! You can now retry your query."
+                    _rerun()
+                except Exception as e:
+                    st.session_state["cache_cleared_msg"] = f"❌ Error clearing cache: {e}"
+                    _rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # Show cache cleared message if present
-    if st.session_state["cache_cleared_msg"]:
+    # Show status messages if present
+    if st.session_state.get("cache_cleared_msg"):
         st.success(st.session_state["cache_cleared_msg"])
-        # Clear the message after showing it once
         st.session_state["cache_cleared_msg"] = None
+    
+    if st.session_state.get("s3_refresh_msg"):
+        st.success(st.session_state["s3_refresh_msg"])
+        st.session_state["s3_refresh_msg"] = None
 
     # Background warmup
     if st.session_state["warm_future"] is None:

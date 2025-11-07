@@ -185,13 +185,30 @@ class HrBot():
     - Emotionally intelligent and empathetic communication
     - Amazon Bedrock (Amazon Nova Lite v1) LLM for fast, cost-efficient responses
     - Detailed, accurate answers with proper source citation
+    - Intelligent S3 document caching for performance optimization
     """
 
     agents: List[BaseAgent]
     tasks: List[Task]
     
-    def __init__(self):
+    # Class-level cache for RAG tools (shared across instances)
+    # This avoids rebuilding embeddings/indexes for the same role
+    _rag_tool_cache = {}
+    
+    def __init__(self, user_role: str = "employee", use_s3: bool = True):
+        """
+        Initialize HR Bot with role-based access control
+        
+        Args:
+            user_role: User role - "executive" or "employee" (default: "employee")
+            use_s3: If True, load documents from S3 instead of local files (default: True)
+        """
         super().__init__()
+        
+        # Store user role for access control
+        self.user_role = user_role.lower()
+        self.use_s3 = use_s3
+        print(f"🔐 Initializing HR Bot for role: {self.user_role.upper()}")
         
         # Initialize Amazon Bedrock LLM with Nova Pro
         # Set AWS credentials for Bedrock access
@@ -220,9 +237,36 @@ class HrBot():
         # Resolve project root once for downstream paths
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         
-        # Initialize tools with absolute data directory so document loading works in UI/CLI contexts
-        data_dir_path = os.path.join(project_root, "data")
-        self.hybrid_rag_tool = HybridRAGTool(data_dir=data_dir_path)
+        # Create cache key for this role/mode combination
+        cache_key = f"{self.user_role}_{use_s3}"
+        
+        # Initialize tools with role-based document access and intelligent caching
+        if cache_key in HrBot._rag_tool_cache:
+            # Use cached RAG tool (embeddings/index already built)
+            print(f"⚡ Using cached RAG tool for {self.user_role} role")
+            self.hybrid_rag_tool = HrBot._rag_tool_cache[cache_key]
+        else:
+            # Build new RAG tool
+            if self.use_s3:
+                # Load documents from S3 with caching
+                from hr_bot.utils.s3_loader import load_documents_from_s3
+                print(f"📦 Loading documents from S3 for {self.user_role} role...")
+                s3_documents = load_documents_from_s3(user_role=self.user_role)
+                data_dir_path = None  # S3 mode doesn't use local data dir
+                
+                print(f"🔨 Building RAG index for {self.user_role} role...")
+                self.hybrid_rag_tool = HybridRAGTool(data_dir=data_dir_path, document_paths=s3_documents)
+                print(f"✅ Loaded {len(s3_documents)} documents from S3")
+            else:
+                # Use local data directory (backward compatible)
+                data_dir_path = os.path.join(project_root, "data")
+                print(f"📁 Loading documents from local directory: {data_dir_path}")
+                self.hybrid_rag_tool = HybridRAGTool(data_dir=data_dir_path)
+            
+            # Cache the RAG tool for this role
+            HrBot._rag_tool_cache[cache_key] = self.hybrid_rag_tool
+            print(f"💾 Cached RAG tool for {self.user_role} role")
+        
         self.master_actions_tool = MasterActionsTool()  # Initialize Master Actions Tool
 
         # Persist AWS configuration for downstream components (e.g., memory embedder)
@@ -1092,3 +1136,29 @@ class HrBot():
                     pass
 
         return CrewWithSources(crew, hybrid_tool, master_tool, self.long_term_memory, self.memory_db_path)
+    
+    @classmethod
+    def clear_rag_cache(cls):
+        """
+        Clear the in-memory RAG tool cache
+        
+        Useful when:
+        - Documents have been updated in S3
+        - You want to force rebuild of embeddings/indexes
+        - Troubleshooting RAG issues
+        """
+        cls._rag_tool_cache.clear()
+        print("🗑️  Cleared in-memory RAG tool cache")
+    
+    @classmethod
+    def get_cache_info(cls) -> dict:
+        """
+        Get information about cached RAG tools
+        
+        Returns:
+            Dictionary with cache statistics
+        """
+        return {
+            "cached_roles": list(cls._rag_tool_cache.keys()),
+            "cache_size": len(cls._rag_tool_cache)
+        }

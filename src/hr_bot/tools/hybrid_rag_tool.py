@@ -76,7 +76,15 @@ class HybridRAGRetriever:
     Optimized for document tables and structured content
     """
     
-    def __init__(self, cache: Optional[Cache] = None, data_dir: str = "data"):
+    def __init__(self, cache: Optional[Cache] = None, data_dir: str = "data", document_paths: Optional[List[str]] = None):
+        """
+        Initialize Hybrid RAG Retriever
+        
+        Args:
+            cache: Optional cache instance
+            data_dir: Local data directory path (used if document_paths is None)
+            document_paths: Optional list of document file paths (for S3 documents)
+        """
         # Use local HuggingFace embeddings for no API quota limits
         # all-MiniLM-L6-v2: Fast, efficient, and high-quality (384 dimensions)
         self.embeddings = HuggingFaceEmbeddings(
@@ -92,7 +100,8 @@ class HybridRAGRetriever:
         self.ensemble_retriever = None
         self.bm25 = None
         self.documents: List[Document] = []
-        self.data_dir = Path(data_dir)
+        self.data_dir = Path(data_dir) if data_dir else None
+        self.document_paths = document_paths  # Store for S3 mode
         self.cache_dir = Path(".rag_cache")
         self.cache_dir.mkdir(exist_ok=True)
         self.cache = cache or Cache(str(self.cache_dir))
@@ -158,6 +167,44 @@ class HybridRAGRetriever:
                 print(f"✓ Loaded: {file_path.name}")
             except Exception as e:
                 print(f"✗ Error loading {file_path.name}: {e}")
+                
+        return documents
+    
+    def _load_documents_from_paths(self, document_paths: List[str]) -> List[Document]:
+        """
+        Load documents from a list of file paths (S3 mode)
+        
+        Args:
+            document_paths: List of absolute file paths to .docx documents
+            
+        Returns:
+            List of loaded Document objects
+        """
+        documents = []
+        
+        for file_path_str in document_paths:
+            try:
+                file_path = Path(file_path_str)
+                
+                # Only process .docx files
+                if not file_path.suffix.lower() == '.docx':
+                    continue
+                
+                # Use Docx2txt for better table handling
+                loader = Docx2txtLoader(str(file_path))
+                docs = loader.load()
+                
+                # Add metadata
+                for doc in docs:
+                    doc.metadata['source'] = file_path.name
+                    doc.metadata['file_path'] = str(file_path)
+                    # Sanitize common template placeholders to avoid leaking into answers
+                    doc.page_content = self._sanitize(doc.page_content)
+                    documents.append(doc)
+                    
+                print(f"✓ Loaded: {file_path.name}")
+            except Exception as e:
+                print(f"✗ Error loading {file_path_str}: {e}")
                 
         return documents
 
@@ -328,8 +375,13 @@ class HybridRAGRetriever:
     def build_index(self, force_rebuild: bool = False):
         """Build or load hybrid search index"""
         
-        # Compute current data hash
-        current_hash = self._compute_data_hash(self.data_dir)
+        # Compute current data hash (use document_paths if S3 mode, else data_dir)
+        if self.document_paths:
+            # S3 mode: hash based on document paths
+            current_hash = hashlib.md5("".join(sorted(self.document_paths)).encode()).hexdigest()
+        else:
+            # Local mode: hash based on data directory
+            current_hash = self._compute_data_hash(self.data_dir)
         
         # Define paths
         vector_store_path = self.vector_store_dir / "faiss_index"
@@ -341,8 +393,15 @@ class HybridRAGRetriever:
         
         print("Building new search index...")
         
-        # Load and process documents
-        raw_documents = self._load_documents(self.data_dir)
+        # Load and process documents (S3 mode or local mode)
+        if self.document_paths:
+            # S3 mode: Load from provided document paths
+            print(f"📦 Loading documents from S3 ({len(self.document_paths)} files)...")
+            raw_documents = self._load_documents_from_paths(self.document_paths)
+        else:
+            # Local mode: Scan data directory
+            raw_documents = self._load_documents(self.data_dir)
+        
         self.documents = self._chunk_documents(raw_documents)
         # Additional sanitation pass for chunked documents
         for d in self.documents:
@@ -658,9 +717,17 @@ class HybridRAGTool(BaseTool):
     # Use Field to declare the retriever attribute
     retriever: HybridRAGRetriever = Field(default=None, exclude=True)
     
-    def __init__(self, data_dir: str = "data", **kwargs):
+    def __init__(self, data_dir: str = "data", document_paths: Optional[List[str]] = None, **kwargs):
+        """
+        Initialize Hybrid RAG Tool
+        
+        Args:
+            data_dir: Local data directory path (used if document_paths is None)
+            document_paths: Optional list of document file paths (for S3 documents)
+            **kwargs: Additional arguments
+        """
         # Set retriever before calling super().__init__
-        retriever_instance = HybridRAGRetriever(data_dir=data_dir)
+        retriever_instance = HybridRAGRetriever(data_dir=data_dir, document_paths=document_paths)
         kwargs['retriever'] = retriever_instance
         super().__init__(**kwargs)
         

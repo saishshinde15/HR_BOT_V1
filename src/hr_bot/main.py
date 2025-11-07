@@ -37,7 +37,7 @@ def run():
     print("="*70 + "\n")
     
     # Default query for testing
-    default_query = "I am Ill and will not we able to come to work today. Also my wife is expecting a baby so i have no idea how long i will be off work"
+    default_query = "What is the maternity leave policy and how many weeks am I entitled to?"
     
     # Check if query is provided as argument
     if len(sys.argv) > 1 and sys.argv[0] != 'crewai':

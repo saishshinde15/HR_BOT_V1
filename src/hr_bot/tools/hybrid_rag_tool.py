@@ -90,7 +90,10 @@ class HybridRAGRetriever:
         # all-MiniLM-L6-v2: Fast, efficient, and high-quality (384 dimensions)
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'},
+            model_kwargs={
+                'device': 'cpu',
+                'trust_remote_code': False
+            },
             encode_kwargs={'normalize_embeddings': True}
         )
 

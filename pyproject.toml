@@ -30,7 +30,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     # Local Embeddings (HuggingFace) - replace remote embeddings for vectors
     "langchain-huggingface>=0.3.0",
-    "sentence-transformers>=3.0.0,<4.0.0",
+    "sentence-transformers==2.7.0",
+    "torch==2.6.0",
     "pytest>=8.2.0",
     # Evaluation & hallucination metrics
     "ragas>=0.1.20",

@@ -76,7 +76,7 @@ class HybridRAGRetriever:
     Optimized for document tables and structured content
     """
     
-    def __init__(self, cache: Optional[Cache] = None, data_dir: str = "data", document_paths: Optional[List[str]] = None):
+    def __init__(self, cache: Optional[Cache] = None, data_dir: str = "data", document_paths: Optional[List[str]] = None, s3_version_hash: Optional[str] = None):
         """
         Initialize Hybrid RAG Retriever
         
@@ -84,6 +84,7 @@ class HybridRAGRetriever:
             cache: Optional cache instance
             data_dir: Local data directory path (used if document_paths is None)
             document_paths: Optional list of document file paths (for S3 documents)
+            s3_version_hash: Optional S3 ETag-based version hash for cache invalidation
         """
         # Use local HuggingFace embeddings for no API quota limits
         # all-MiniLM-L6-v2: Fast, efficient, and high-quality (384 dimensions)
@@ -102,6 +103,7 @@ class HybridRAGRetriever:
         self.documents: List[Document] = []
         self.data_dir = Path(data_dir) if data_dir else None
         self.document_paths = document_paths  # Store for S3 mode
+        self.s3_version_hash = s3_version_hash  # NEW: S3 ETag version for cache invalidation
         self.cache_dir = Path(".rag_cache")
         self.cache_dir.mkdir(exist_ok=True)
         self.cache = cache or Cache(str(self.cache_dir))
@@ -137,7 +139,7 @@ class HybridRAGRetriever:
     def _compute_data_hash(self, data_dir: Path) -> str:
         """Compute hash of all documents for cache invalidation"""
         hasher = hashlib.md5()
-        for file_path in sorted(data_dir.glob("*.docx")):
+        for file_path in sorted(data_dir.rglob("*.docx")):
             hasher.update(str(file_path.stat().st_mtime).encode())
             hasher.update(file_path.name.encode())
         # Include key config affecting index layout
@@ -150,7 +152,7 @@ class HybridRAGRetriever:
         """Load all Word documents with table-aware processing"""
         documents = []
         
-        for file_path in data_dir.glob("*.docx"):
+        for file_path in data_dir.rglob("*.docx"):
             try:
                 # Use Docx2txt for better table handling
                 loader = Docx2txtLoader(str(file_path))
@@ -312,16 +314,31 @@ class HybridRAGRetriever:
             if self.vector_store:
                 self.vector_store.save_local(str(vector_store_path))
             
-            # Save BM25 index
+            # Save BM25 index - ONLY save what's needed, not SearchResult objects
             if self.bm25:
+                # CRITICAL FIX: Don't save anything that might contain SearchResult objects
+                # Clean the documents metadata to remove any SearchResult references
+                clean_documents = []
+                for doc in self.documents:
+                    # Create a copy without any SearchResult references in metadata
+                    clean_doc = Document(
+                        page_content=doc.page_content,
+                        metadata={k: v for k, v in doc.metadata.items() if not isinstance(v, SearchResult)}
+                    )
+                    clean_documents.append(clean_doc)
+                
                 with open(bm25_path, 'wb') as f:
                     pickle.dump({
                         'bm25': self.bm25,
-                        'documents': self.documents,
+                        'documents': clean_documents,  # Use cleaned documents
                         'index_hash': self.index_hash
                     }, f)
                     
             print("✓ Indexes saved to disk")
+        except (pickle.PicklingError, TypeError, AttributeError) as e:
+            # If pickling fails (e.g., SearchResult serialization), just skip saving
+            # Index will rebuild on next run - not critical since we have ETag validation
+            print(f"⚠️  Could not pickle index (will rebuild on next run): {e}")
         except Exception as e:
             print(f"Warning: Could not save indexes: {e}")
     
@@ -332,13 +349,33 @@ class HybridRAGRetriever:
             if not vector_store_path.exists() or not bm25_path.exists():
                 return False
             
+            # CRITICAL FIX: Check index age (24 hour TTL)
+            import time
+            index_age_hours = (time.time() - bm25_path.stat().st_mtime) / 3600
+            INDEX_TTL_HOURS = 24
+            if index_age_hours > INDEX_TTL_HOURS:
+                print(f"⏰ Index is {index_age_hours:.1f}h old (TTL: {INDEX_TTL_HOURS}h) - rebuilding...")
+                return False
+            
             # Load BM25 and check hash
             with open(bm25_path, 'rb') as f:
                 data = pickle.load(f)
                 
             # Validate hash
             if data.get('index_hash') != current_hash:
-                print("Index hash mismatch - rebuilding...")
+                print(f"🔄 Index hash mismatch - rebuilding...")
+                print(f"   Cached: {data.get('index_hash', 'none')[:12]}...")
+                print(f"   Current: {current_hash[:12]}...")
+                
+                # CRITICAL FIX: Delete stale index files
+                import shutil
+                if vector_store_path.exists():
+                    shutil.rmtree(vector_store_path)
+                    print(f"   Deleted stale FAISS index")
+                if bm25_path.exists():
+                    bm25_path.unlink()
+                    print(f"   Deleted stale BM25 index")
+                
                 return False
             
             # Load FAISS index
@@ -375,10 +412,25 @@ class HybridRAGRetriever:
     def build_index(self, force_rebuild: bool = False):
         """Build or load hybrid search index"""
         
-        # Compute current data hash (use document_paths if S3 mode, else data_dir)
-        if self.document_paths:
-            # S3 mode: hash based on document paths
-            current_hash = hashlib.md5("".join(sorted(self.document_paths)).encode()).hexdigest()
+        # Compute current data hash (use S3 version hash if available, else document_paths or data_dir)
+        if self.s3_version_hash:
+            # S3 mode with ETag validation: Use S3 version hash for cache invalidation
+            # This ensures RAG index rebuilds when S3 documents change
+            current_hash = self.s3_version_hash
+            print(f"🔐 Using S3 version hash for RAG cache: {current_hash[:12]}...")
+        elif self.document_paths:
+            # S3 mode without version hash: hash based on document paths + file mtimes
+            hasher = hashlib.md5()
+            for doc_path in sorted(self.document_paths):
+                hasher.update(doc_path.encode())
+                try:
+                    mtime = Path(doc_path).stat().st_mtime
+                    hasher.update(str(mtime).encode())
+                except Exception:
+                    pass
+            hasher.update(f"chunk_size:{self.chunk_size}|overlap:{self.chunk_overlap}".encode())
+            hasher.update(b"sanitize_placeholders_v3")
+            current_hash = hasher.hexdigest()
         else:
             # Local mode: hash based on data directory
             current_hash = self._compute_data_hash(self.data_dir)
@@ -387,9 +439,18 @@ class HybridRAGRetriever:
         vector_store_path = self.vector_store_dir / "faiss_index"
         bm25_path = self.vector_store_dir / "bm25_index.pkl"
         
-        # Try to load existing index
-        if not force_rebuild and self._load_index(vector_store_path, bm25_path, current_hash):
-            return
+        # CRITICAL: If force_rebuild is True, delete old index files and skip cache loading
+        if force_rebuild:
+            print("🔥 Force rebuild requested - deleting old indexes")
+            import shutil
+            if vector_store_path.exists():
+                shutil.rmtree(vector_store_path)
+            if bm25_path.exists():
+                bm25_path.unlink()
+        else:
+            # Try to load existing index
+            if self._load_index(vector_store_path, bm25_path, current_hash):
+                return
         
         print("Building new search index...")
         
@@ -717,17 +778,23 @@ class HybridRAGTool(BaseTool):
     # Use Field to declare the retriever attribute
     retriever: HybridRAGRetriever = Field(default=None, exclude=True)
     
-    def __init__(self, data_dir: str = "data", document_paths: Optional[List[str]] = None, **kwargs):
+    def __init__(self, data_dir: str = "data", document_paths: Optional[List[str]] = None, s3_version_hash: Optional[str] = None, force_rebuild: bool = False, **kwargs):
         """
         Initialize Hybrid RAG Tool
         
         Args:
             data_dir: Local data directory path (used if document_paths is None)
             document_paths: Optional list of document file paths (for S3 documents)
+            s3_version_hash: Optional S3 ETag-based version hash for cache invalidation
+            force_rebuild: Force rebuild of indexes even if cache exists
             **kwargs: Additional arguments
         """
         # Set retriever before calling super().__init__
-        retriever_instance = HybridRAGRetriever(data_dir=data_dir, document_paths=document_paths)
+        retriever_instance = HybridRAGRetriever(
+            data_dir=data_dir, 
+            document_paths=document_paths,
+            s3_version_hash=s3_version_hash  # Pass S3 version hash to retriever
+        )
         kwargs['retriever'] = retriever_instance
         super().__init__(**kwargs)
         
@@ -736,7 +803,7 @@ class HybridRAGTool(BaseTool):
         
         # Initialize retriever
         print("Initializing Hybrid RAG system...")
-        self.retriever.build_index()
+        self.retriever.build_index(force_rebuild=force_rebuild)
         print("✓ Hybrid RAG system ready!")
     
     def _run(self, query: str, top_k: Optional[int] = None) -> str:
@@ -751,6 +818,8 @@ class HybridRAGTool(BaseTool):
             Formatted string with search results or "NO_RELEVANT_DOCUMENTS" if confidence is too low
         """
         try:
+            # Reset sources snapshot at the start of each run
+            object.__setattr__(self, '_last_sources', [])
             # Check if index is empty
             if self.retriever.vector_store is None or len(self.retriever.documents) == 0:
                 return "⚠️ No HR documents available. Please add policy documents to the data/ directory."
@@ -781,9 +850,29 @@ class HybridRAGTool(BaseTool):
             # CRITICAL: Score-based confidence validation to prevent hallucinations
             # If best score is too negative/low, documents are not relevant
             best_score = max(r.score for r in results)
-            CONFIDENCE_THRESHOLD = float(os.getenv("RAG_CONFIDENCE_THRESHOLD", "-2.0"))
+            CONFIDENCE_THRESHOLD = float(os.getenv("RAG_CONFIDENCE_THRESHOLD", "-7.5"))
+
+            # Allow keyword-backed overrides when semantic score is slightly below threshold
+            keyword_tokens = {token for token in re.findall(r"\b\w+\b", query.lower()) if len(token) > 3}
+            keyword_overlap_ratio = 0.0
+            if keyword_tokens and results:
+                top_content = results[0].content.lower()
+                hits = sum(1 for token in keyword_tokens if token in top_content)
+                keyword_overlap_ratio = hits / max(len(keyword_tokens), 1)
+            overlap_confident = keyword_overlap_ratio >= 0.25
             
-            if best_score < CONFIDENCE_THRESHOLD:
+            # DEBUG: Log scores for troubleshooting
+            print(f"🔍 RAG Search Debug:")
+            print(f"   Query: {query[:50]}...")
+            print(f"   Best Score: {best_score:.3f}")
+            print(f"   Threshold: {CONFIDENCE_THRESHOLD}")
+            print(f"   Keyword Overlap: {keyword_overlap_ratio:.0%}")
+            print(f"   Results: {len(results)}")
+            for i, r in enumerate(results[:3], 1):
+                print(f"   [{i}] {r.source}: {r.score:.3f}")
+            
+            if best_score < CONFIDENCE_THRESHOLD and not overlap_confident:
+                print(f"❌ Rejected: Best score {best_score:.3f} < threshold {CONFIDENCE_THRESHOLD}")
                 return "NO_RELEVANT_DOCUMENTS"
             
             # Format results
@@ -793,12 +882,16 @@ class HybridRAGTool(BaseTool):
             for idx, result in enumerate(results, 1):
                 output += f"[{idx}] (Score: {result.score:.3f}) {result.source}\n"
                 output += f"{result.content}\n\n"
-                # Collect source filenames WITHOUT numbering for deduplication
-                sources_accum.append(result.source)
+                # CRITICAL FIX: Only add sources that pass confidence threshold
+                # Don't include documents with terrible scores in attribution
+                if result.score >= CONFIDENCE_THRESHOLD or (overlap_confident and idx == 1):
+                    sources_accum.append(result.source)
 
             # Get unique source filenames (removes duplicates from multiple chunks of same document)
             unique_sources = list(dict.fromkeys(sources_accum))
-            # Store sources at both tool and retriever level for compatibility
+            
+            # Store only HIGH-CONFIDENCE sources for proper attribution
+            # Low-scoring documents (<threshold) are shown in results but NOT in Sources
             object.__setattr__(self, '_last_sources', unique_sources)
             self.retriever._last_sources = unique_sources
             output += "Sources: " + " • ".join(unique_sources) + "\n"
@@ -814,3 +907,7 @@ class HybridRAGTool(BaseTool):
             return list(object.__getattribute__(self, '_last_sources'))
         except AttributeError:
             return []
+
+    def clear_last_sources(self) -> None:
+        """Explicitly clear cached source metadata."""
+        object.__setattr__(self, '_last_sources', [])

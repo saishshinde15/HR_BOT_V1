@@ -37,6 +37,8 @@ answer_hr_query:
        - If hr_document_search returns policy details, integrate them with the action steps
        - Create ONE comprehensive answer combining both sources seamlessly
        - If neither tool has information, use validation system (contact HR message)
+         - Provide a helpful answer based on the conversation context
+       - If neither tool has information AND no relevant context: use validation system (contact HR message)
     
     3. Provide thorough answer covering:
        - Direct links and step-by-step instructions (from master_actions_guide)
@@ -48,13 +50,28 @@ answer_hr_query:
     
     4. Format response with HUMAN TOUCH:
        - Warm, personalized opening that shows understanding ("I'd be happy to help you with that!")
-       - **Links and Steps** section (if available from master_actions_guide) with conversational intro
        - **Policy Information** section (ONLY if hr_document_search found relevant information) using friendly language
+         ⚠️ **CRITICAL: NEVER include clickable links like [text](url) unless the exact URL came from master_actions_guide tool**
+         ⚠️ **NEVER say "Click on this link:" or create hyperlinks to documents**
+         ⚠️ **NEVER invent URLs like example.com or company.com**
+         - Just provide policy details as plain text without hyperlinks
        - Comprehensive answer with headings/bullets but conversational tone
        - Numbered next steps with encouraging phrases
        - Supportive, warm closing that invites further questions
-       - **Sources:** section at the end with format "Sources: Document_Name • Another_Document"
-         ⚠️ DO NOT say "I found this information in..." - just list sources cleanly at the end
+       - **Sources:** section at the end with TOP 2 most relevant documents
+         ⚠️ **CRITICAL FORMAT RULES**:
+         1. **NO LEADING BULLET**: Start with document name, NOT a bullet
+            ✅ CORRECT: `Sources: 11_Inara_Anti_Harassment_Policy.docx • 13_Inara_Whistleblower_Policy.docx`
+            ❌ WRONG: `Sources: • 13_Inara... • 14_Inara...` (has leading bullet)
+         2. **FIRST 2 DOCUMENTS ONLY**: Use the FIRST 2 documents from tool output (highest scores)
+         3. **EXACT NAMES**: Copy document names EXACTLY including .docx extension
+         4. **SPACE-BULLET-SPACE**: Separate with ` • ` (space, bullet, space)
+         5. **NO NUMBERING**: Don't use [1], [2], "1.", etc. before document names
+         6. **DON'T SKIP**: Use the FIRST document, don't skip to 2nd or 3rd
+         7. ⚠️ **ONLY USE SOURCES FROM FINAL ANSWER**: If you called BOTH master_actions_guide AND hr_document_search,
+            use ONLY the sources from the tool that provided the MAIN answer (not both!)
+            - If final answer is about HOW TO steps → Use ONLY master_actions_guide sources
+            - If final answer is about policy details → Use ONLY hr_document_search sources
     
     5. **CRITICAL - Policy Section Rules:**
        - ONLY include "Policy Information" section if hr_document_search found RELEVANT documents
@@ -66,6 +83,12 @@ answer_hr_query:
     - ALWAYS check master_actions_guide first for procedural queries
     - Only use information from tool results
     - Never invent contact details, emails, or specifics not in documents/actions
+    - ⚠️ **CRITICAL ANTI-HALLUCINATION RULES:**
+      - **NEVER create markdown hyperlinks like [text](url)**
+      - **NEVER say "Click on this link:" unless master_actions_guide provided an actual link**
+      - **NEVER mention URLs (example.com, darwinbox.com, etc.) unless they're in tool output**
+      - **NEVER create links to documents** - just list document names in Sources section
+      - **ALWAYS copy ALL source documents from tool output** - don't abbreviate or skip any
     - If info missing from both tools: "couldn't find" or "not available in our current documentation"
     - Skip tools for greetings/thanks only (no policy question)
     - For technical/IT questions: Redirect to IT support, clarify HR scope

@@ -332,6 +332,7 @@ class S3DocumentLoader:
         2. Validate S3 version using ETag comparison (no downloads)
         3. If cache valid and S3 unchanged, use cached files (fast path)
         4. If cache invalid or S3 changed, download from S3 (slow path)
+        5. Clear ALL RAG caches if S3 version changed (force complete RAG rebuild)
         
         Args:
             force_refresh: Force download from S3 even if cache is valid
@@ -339,12 +340,32 @@ class S3DocumentLoader:
         Returns:
             List of local file paths to documents
         """
+        # Get current S3 version hash FIRST (before any cache checks)
+        current_s3_hash, current_s3_metadata = self._get_s3_version_hash()
+        
+        # Check cached S3 version
+        cached_s3_hash = None
+        if self.version_file.exists():
+            try:
+                with open(self.version_file, 'r') as f:
+                    cached_s3_hash = f.read().strip()
+            except Exception:
+                pass
+        
+        # Detect if S3 actually changed (critical for RAG cache invalidation)
+        s3_changed = (current_s3_hash != cached_s3_hash) if cached_s3_hash else True
+        
+        if s3_changed and not force_refresh:
+            print(f"🔄 S3 documents changed detected!")
+            print(f"   Cached version: {cached_s3_hash[:12] if cached_s3_hash else 'None'}...")
+            print(f"   Current version: {current_s3_hash[:12]}...")
+        
         # Check if we should use cache
         if not force_refresh:
             is_valid, reason = self._is_cache_valid()
             
-            if is_valid:
-                # Fast path: Use cached documents
+            if is_valid and not s3_changed:
+                # Fast path: Use cached documents (S3 unchanged)
                 cached_paths = self._load_from_manifest()
                 
                 if cached_paths:
@@ -352,15 +373,13 @@ class S3DocumentLoader:
                     print(f"⚡ Using cached documents ({len(cached_paths)} files, {cache_age:.1f}h old)")
                     return cached_paths
             else:
-                print(f"🔄 Cache invalid: {reason}")
+                if not is_valid:
+                    print(f"🔄 Cache invalid: {reason}")
         else:
             print(f"🔄 Force refresh requested")
         
         # Slow path: Download from S3
         print(f"📥 Downloading documents from S3...")
-        
-        # Get current S3 version and metadata
-        version_hash, s3_metadata = self._get_s3_version_hash()
         
         # Download all documents
         local_paths = self._download_all_from_s3()
@@ -368,10 +387,48 @@ class S3DocumentLoader:
         # Save manifest and metadata for future validation
         if local_paths:
             self._save_manifest(local_paths)
-            if version_hash:
-                self._save_cache_metadata(version_hash, s3_metadata)
+            if current_s3_hash:
+                self._save_cache_metadata(current_s3_hash, current_s3_metadata)
+        
+        # CRITICAL: Clear ALL RAG caches if S3 changed or force refresh
+        # This ensures RAG embeddings/indexes are completely rebuilt with new documents
+        if s3_changed or force_refresh:
+            print(f"🔥 S3 version changed - clearing ALL RAG caches...")
+            self._clear_rag_cache()
         
         return local_paths
+    
+    def _clear_rag_cache(self):
+        """
+        Clear RAG index cache (FAISS/BM25) to force rebuild with new documents
+        
+        This is CRITICAL when S3 documents change - otherwise RAG will use old embeddings.
+        We clear ALL RAG cache files, not just specific hashes, to ensure complete invalidation.
+        """
+        import shutil
+        
+        cache_dirs = [".rag_cache", ".rag_index", "storage/response_cache"]
+        
+        for cache_dir_name in cache_dirs:
+            cache_dir = Path(cache_dir_name)
+            if cache_dir.exists():
+                try:
+                    # Remove entire directory and recreate
+                    shutil.rmtree(cache_dir)
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    print(f"🗑️  Cleared RAG cache: {cache_dir}")
+                except Exception as e:
+                    print(f"⚠️  Warning: Could not clear {cache_dir}: {e}")
+        
+        # Also clear in-memory RAG tool cache in crew.py
+        try:
+            from hr_bot.crew import HrBot
+            HrBot.clear_rag_cache()
+            print("🗑️  Cleared in-memory RAG tool cache")
+        except Exception as e:
+            print(f"⚠️  Warning: Could not clear in-memory cache: {e}")
+        
+        print("✅ All RAG caches cleared - embeddings will be rebuilt with new documents")
     
     def clear_cache(self):
         """
@@ -447,7 +504,7 @@ class S3DocumentLoader:
             return {"total": 0, "by_folder": {}, "role": self.user_role}
 
 
-def load_documents_from_s3(user_role: str = "employee", force_refresh: bool = False) -> List[str]:
+def load_documents_from_s3(user_role: str = "employee", force_refresh: bool = False) -> tuple[List[str], str, str]:
     """
     Convenience function to load documents from S3 with caching
     
@@ -456,10 +513,18 @@ def load_documents_from_s3(user_role: str = "employee", force_refresh: bool = Fa
         force_refresh: Force download from S3 even if cache is valid
     
     Returns:
-        List of local file paths to cached/downloaded documents
+        Tuple of (file_paths, s3_version_hash, cache_dir):
+        - file_paths: List of local file paths to cached/downloaded documents
+        - s3_version_hash: SHA256 hash of S3 ETags for RAG cache invalidation
+        - cache_dir: Directory where documents are cached (for Master Actions Tool)
     """
     loader = S3DocumentLoader(user_role=user_role)
-    return loader.load_documents(force_refresh=force_refresh)
+    file_paths = loader.load_documents(force_refresh=force_refresh)
+    
+    # Get S3 version hash for RAG cache invalidation
+    s3_version_hash, _ = loader._get_s3_version_hash()
+    
+    return file_paths, s3_version_hash, str(loader.cache_dir)
 
 
 if __name__ == "__main__":

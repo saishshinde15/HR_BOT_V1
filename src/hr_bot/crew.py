@@ -239,35 +239,75 @@ class HrBot():
         
         # Create cache key for this role/mode combination
         cache_key = f"{self.user_role}_{use_s3}"
-        
+
+        cached_entry = HrBot._rag_tool_cache.get(cache_key)
+
         # Initialize tools with role-based document access and intelligent caching
-        if cache_key in HrBot._rag_tool_cache:
-            # Use cached RAG tool (embeddings/index already built)
-            print(f"⚡ Using cached RAG tool for {self.user_role} role")
-            self.hybrid_rag_tool = HrBot._rag_tool_cache[cache_key]
+        if cached_entry:
+            # Backwards compatibility: legacy cache stored only the tool instance
+            if isinstance(cached_entry, dict):
+                self.hybrid_rag_tool = cached_entry.get("rag_tool")
+                cached_mode = cached_entry.get("mode")
+                cached_cache_dir = cached_entry.get("s3_cache_dir")
+                if self.hybrid_rag_tool is None:
+                    # Corrupted cache entry, force rebuild below
+                    HrBot._rag_tool_cache.pop(cache_key, None)
+                    cached_entry = None
+            else:
+                self.hybrid_rag_tool = cached_entry
+                cached_mode = "legacy"
+                cached_cache_dir = None
+
+        if cached_entry:
+            print(f"⚡ Using cached RAG tool for {self.user_role} role ({cached_mode})")
+            # Always create a fresh Master Actions Tool to avoid carrying over state
+            if cached_mode == "s3" and cached_cache_dir:
+                self.master_actions_tool = MasterActionsTool(cache_dir=cached_cache_dir)
+            else:
+                self.master_actions_tool = MasterActionsTool()
         else:
             # Build new RAG tool
+            data_dir_path = os.path.join(project_root, "data")
+            s3_cache_dir = None
+            cache_mode = "local"
+
             if self.use_s3:
-                # Load documents from S3 with caching
-                from hr_bot.utils.s3_loader import load_documents_from_s3
-                print(f"📦 Loading documents from S3 for {self.user_role} role...")
-                s3_documents = load_documents_from_s3(user_role=self.user_role)
-                data_dir_path = None  # S3 mode doesn't use local data dir
-                
-                print(f"🔨 Building RAG index for {self.user_role} role...")
-                self.hybrid_rag_tool = HybridRAGTool(data_dir=data_dir_path, document_paths=s3_documents)
-                print(f"✅ Loaded {len(s3_documents)} documents from S3")
+                try:
+                    from hr_bot.utils.s3_loader import load_documents_from_s3
+                    print(f"📦 Loading documents from S3 for {self.user_role} role...")
+                    s3_documents, s3_version_hash, s3_cache_dir = load_documents_from_s3(user_role=self.user_role)
+                except Exception as s3_error:
+                    print(f"⚠️  Unable to load documents from S3 ({s3_error}). Falling back to local data directory.")
+                    s3_documents, s3_version_hash = [], ""
+
+                if s3_documents:
+                    print(f"🔨 Building RAG index for {self.user_role} role...")
+                    print(f"🔐 S3 Version Hash: {s3_version_hash[:12]}... (for RAG cache invalidation)")
+                    self.hybrid_rag_tool = HybridRAGTool(
+                        data_dir=None,
+                        document_paths=s3_documents,
+                        s3_version_hash=s3_version_hash
+                    )
+                    print(f"✅ Loaded {len(s3_documents)} documents from S3")
+                    self.master_actions_tool = MasterActionsTool(cache_dir=s3_cache_dir)
+                    cache_mode = "s3"
+                else:
+                    print("⚠️  No S3 documents available. Falling back to local data directory.")
+                    self.hybrid_rag_tool = HybridRAGTool(data_dir=data_dir_path)
+                    self.master_actions_tool = MasterActionsTool()
             else:
                 # Use local data directory (backward compatible)
-                data_dir_path = os.path.join(project_root, "data")
                 print(f"📁 Loading documents from local directory: {data_dir_path}")
                 self.hybrid_rag_tool = HybridRAGTool(data_dir=data_dir_path)
-            
-            # Cache the RAG tool for this role
-            HrBot._rag_tool_cache[cache_key] = self.hybrid_rag_tool
-            print(f"💾 Cached RAG tool for {self.user_role} role")
-        
-        self.master_actions_tool = MasterActionsTool()  # Initialize Master Actions Tool
+                self.master_actions_tool = MasterActionsTool()
+
+            # Cache the RAG tool metadata for this role
+            HrBot._rag_tool_cache[cache_key] = {
+                "rag_tool": self.hybrid_rag_tool,
+                "mode": cache_mode,
+                "s3_cache_dir": s3_cache_dir,
+            }
+            print(f"💾 Cached RAG tool for {self.user_role} role ({cache_mode})")
 
         # Persist AWS configuration for downstream components (e.g., memory embedder)
         self.aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -339,40 +379,51 @@ class HrBot():
             finally:
                 conn.close()
     
-    def query_with_cache(self, query: str, context: str = "") -> str:
+    def query_with_cache(
+        self,
+        query: str,
+        context: str = "",
+        retrieval_query: Optional[str] = None,
+    ) -> str:
         """
         Query the crew with aggressive caching for ultra-fast responses.
         
         Args:
             query: User's question
             context: Conversation context (optional)
+            retrieval_query: Optional enriched query (e.g., with conversation history)
         
         Returns:
             Formatted response string
         """
+        raw_query = (query or "").strip()
+        # Fall back to original query if stripping removed everything
+        raw_query = raw_query or query or ""
+        retrieval_input = (retrieval_query or query or "").strip() or raw_query
+
         # Check for inappropriate content FIRST (before cache/processing)
-        safety_response = self._check_content_safety(query)
+        safety_response = self._check_content_safety(raw_query)
         if safety_response:
             print("🛡️ CONTENT SAFETY - Inappropriate content detected")
             return safety_response
         
         # Check cache first
-        cached_response = self.response_cache.get(query, context)
+        cached_response = self.response_cache.get(raw_query, context)
         if cached_response:
             print("⚡ CACHE HIT - Returning instant response!")
             return cached_response
         
-        small_talk_response = self._small_talk_response(query, context)
+        small_talk_response = self._small_talk_response(raw_query, context)
         if small_talk_response:
             print("💬 SMALL TALK - Skipping retrieval for conversational pleasantries.")
             # CRITICAL: Apply source filtering to small talk responses too
             formatted_small_talk = remove_document_evidence_section(small_talk_response)
-            self.response_cache.set(query, formatted_small_talk, context)
+            self.response_cache.set(raw_query, formatted_small_talk, context)
             return formatted_small_talk
 
         # Cache miss - execute crew with full memory and retry logic
         print("🔄 CACHE MISS - Executing crew...")
-        inputs = {"query": query, "context": context}
+        inputs = {"query": retrieval_input, "context": context}
         
         # Retry logic for AWS Bedrock rate limiting
         max_retries = 3
@@ -417,9 +468,9 @@ class HrBot():
         
         if not is_technical_failure:
             # Save to cache for future queries (only successful responses)
-            self.response_cache.set(query, response_text, context)
+            self.response_cache.set(raw_query, response_text, context)
         else:
-            print(f"⚠️  Skipping cache for technical failure response: {query[:50]}...")
+            print(f"⚠️  Skipping cache for technical failure response: {raw_query[:50]}...")
         
         return response_text
     
@@ -776,6 +827,12 @@ class HrBot():
                 max_retries = 2
                 retry_count = 0
                 output = None
+
+                # Clear cached sources before kicking off so we don't leak previous citations
+                if hasattr(self._hybrid_tool, "clear_last_sources"):
+                    self._hybrid_tool.clear_last_sources()
+                if hasattr(self._master_tool, "clear_last_sources"):
+                    self._master_tool.clear_last_sources()
                 
                 while retry_count <= max_retries:
                     try:
@@ -866,12 +923,31 @@ class HrBot():
                         "recommend contacting HR"
                     ]
                     
+                    # Check for safety/ethical responses (should NOT show sources)
+                    safety_response_indicators = [
+                        "i'm sorry, but i can't assist",
+                        "i can't assist with that",
+                        "sorry, but i can't",
+                        "not acceptable",
+                        "against our company policies",
+                        "maintain a respectful",
+                        "maintaining a respectful",
+                        "inappropriate",
+                        "professional workplace",
+                        "teasing or making inappropriate",
+                        "glad to hear you understand",
+                        "treat your colleagues",
+                        "positive work environment",
+                        "we're here to support you"
+                    ]
+                    
                     output_lower = output_text.lower()
                     has_no_info = any(indicator in output_lower for indicator in no_info_indicators)
+                    is_safety_response = any(indicator in output_lower for indicator in safety_response_indicators)
                     
                     if "Sources:" not in output_text:
-                        # Only add sources if we actually found information
-                        if sources and not has_no_info:
+                        # Only add sources if we actually found information AND it's not a safety response
+                        if sources and not has_no_info and not is_safety_response:
                             sources_line = "Sources: " + ", ".join(sources)
                             separator = "\n" if output_text.endswith("\n") else "\n\n"
                             new_text = f"{output_text}{separator}{sources_line}"
@@ -1140,15 +1216,28 @@ class HrBot():
     @classmethod
     def clear_rag_cache(cls):
         """
-        Clear the in-memory RAG tool cache
+        Clear the in-memory RAG tool cache AND delete FAISS/BM25 index files on disk
         
         Useful when:
         - Documents have been updated in S3
         - You want to force rebuild of embeddings/indexes
         - Troubleshooting RAG issues
         """
+        import shutil
+        from pathlib import Path
+        
+        # Clear in-memory cache
         cls._rag_tool_cache.clear()
         print("🗑️  Cleared in-memory RAG tool cache")
+        
+        # Delete FAISS/BM25 index files on disk
+        cache_dir = Path.home() / ".hr_bot_cache" / "rag_indexes"
+        if cache_dir.exists():
+            try:
+                shutil.rmtree(cache_dir)
+                print(f"🗑️  Deleted RAG index cache directory: {cache_dir}")
+            except Exception as e:
+                print(f"⚠️  Could not delete RAG cache directory: {e}")
     
     @classmethod
     def get_cache_info(cls) -> dict:

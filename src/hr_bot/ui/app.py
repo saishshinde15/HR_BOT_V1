@@ -990,25 +990,35 @@ def format_sources(answer: str) -> str:
 
     for idx, line in enumerate(lines):
         if line.lower().startswith("sources:"):
-            parts = [p.strip() for p in line.split(":", 1)[1].split(",") if p.strip()]
+            # Extract sources after "Sources:" - handle both comma and bullet separators
+            sources_text = line.split(":", 1)[1].strip()
+            
+            # CRITICAL FIX: Remove leading bullet if present (agent sometimes adds it incorrectly)
+            if sources_text.startswith("•"):
+                sources_text = sources_text[1:].strip()
+            
+            # Split by bullet (•) or comma
+            if " • " in sources_text:
+                parts = [p.strip() for p in sources_text.split(" • ") if p.strip()]
+            else:
+                parts = [p.strip() for p in sources_text.split(",") if p.strip()]
+            
             source_items: List[str] = []
 
             for part in parts:
-                if " " in part:
-                    _, _, file_name = part.partition(" ")
-                    file_name = file_name.strip()
-                else:
-                    file_name = part.strip()
-
+                # Clean up the source name (remove extra spaces, prefixes)
+                file_name = part.strip()
+                
+                # Remove any leading numbering like "[1]" or "1."
+                import re
+                file_name = re.sub(r'^\[\d+\]\s*', '', file_name)
+                file_name = re.sub(r'^\d+\.\s*', '', file_name)
+                
                 if not file_name:
                     continue
 
-                display_name = (
-                    file_name.replace(".docx", "")
-                    .replace(".pdf", "")
-                    .replace("-", " ")
-                    .title()
-                )
+                # Keep the .docx extension for accuracy, just format nicely
+                display_name = file_name.replace("_", " ")
                 source_items.append(f"`{display_name}`")
 
             if source_items:
@@ -1167,30 +1177,90 @@ def _warm_bot(bot: HrBot) -> None:
         pass
 
 
-def build_history_context(history: List[Dict[str, str]], new_question: str | None = None, max_entries: int = 3) -> str:
-    """Construct a lightweight conversation context string for the LLM."""
-    user_messages: List[str] = [msg["content"] for msg in history if msg.get("role") == "user"]
-    if new_question:
-        user_messages.append(new_question)
-
-    if not user_messages:
+def build_history_context(history: List[Dict[str, str]], new_question: str | None = None, max_turns: int = 3) -> str:
+    """
+    Construct conversation context with BOTH user questions AND assistant answers.
+    CRITICAL FIX: Include assistant responses for proper followup question handling.
+    
+    Args:
+        history: List of message dicts with 'role' and 'content'
+        new_question: Current user question (not yet in history)
+        max_turns: Number of recent Q&A turns to include (default: 3 = last 3 conversations)
+    
+    Returns:
+        Formatted conversation context string
+    """
+    if not history and not new_question:
         return ""
+    
+    # Build conversation turns (Q&A pairs)
+    # Take last N*2 messages (N questions + N answers)
+    max_messages = max_turns * 2
+    recent_history = history[-max_messages:] if len(history) > max_messages else history
+    
+    context_parts = []
+    if recent_history:
+        context_parts.append("Recent conversation:")
+        
+        # Format each turn with both question and answer
+        for msg in recent_history:
+            role = msg.get("role", "")
+            content = msg.get("content", "")[:300]  # Limit to 300 chars per message
+            
+            if role == "user":
+                context_parts.append(f"User: {content}")
+            elif role == "assistant":
+                # Remove sources from context to save tokens
+                clean_content = content.split("Sources:")[0].strip()
+                context_parts.append(f"Assistant: {clean_content}")
+    
+    # Add current question if provided (for followup detection)
+    if new_question:
+        context_parts.append(f"Current question: {new_question[:200]}")
+    
+    return "\n".join(context_parts) if context_parts else ""
 
-    recent_messages = user_messages[-max_entries:]
-    history_parts = []
-    for idx, content in enumerate(recent_messages, 1):
-        history_parts.append(f"Question {idx}: {content[:200]}")
 
-    return "Recent conversation:\n" + "\n".join(history_parts)
+def build_augmented_question(history: List[Dict[str, str]], question: str, max_turns: int = 2) -> str:
+    """Augment current question with recent conversation context."""
+    if not history:
+        return question.strip()
+
+    max_messages = max_turns * 2
+    recent_history = history[-max_messages:] if len(history) > max_messages else history
+    context_lines: List[str] = []
+
+    for msg in recent_history:
+        role = msg.get("role", "").lower()
+        content = (msg.get("content") or "").strip()
+        if not content:
+            continue
+        if role == "assistant":
+            content = content.split("Sources:")[0].strip()
+            if not content:
+                continue
+            context_lines.append(f"Assistant previously said: {content[:400]}")
+        elif role == "user":
+            context_lines.append(f"User previously asked: {content[:200]}")
+
+    if not context_lines:
+        return question.strip()
+
+    context_lines.append(f"Follow-up question: {question.strip()}")
+    return "\n".join(context_lines)
 
 
-def query_bot(bot: HrBot, question: str, history_context: str) -> str:
+def query_bot(bot: HrBot, question: str, history_context: str, augmented_question: str) -> str:
     """
     Query the bot with caching for ultra-fast responses.
     Uses the new query_with_cache method for automatic caching.
     """
     # Use the cached query method instead of direct crew kickoff
-    return bot.query_with_cache(query=question, context=history_context or "")
+    return bot.query_with_cache(
+        query=question,
+        context=history_context or "",
+        retrieval_query=augmented_question,
+    )
 
 
 def _rerun() -> None:
@@ -1364,17 +1434,33 @@ def main() -> None:
             if st.button("🔄 Refresh S3 Docs", key="s3_refresh_btn", help="Download the latest HR policy documents from S3. Use this when new policies are uploaded.", use_container_width=True):
                 try:
                     from hr_bot.utils.s3_loader import S3DocumentLoader
+                    from hr_bot.crew import HrBot
+                    import shutil
+                    from pathlib import Path
                     
                     # Initialize S3 loader and force refresh
                     s3_loader = S3DocumentLoader(user_role=user_role)
                     s3_loader.clear_cache()
                     document_paths = s3_loader.load_documents(force_refresh=True)
                     
-                    # Clear RAG tool cache to rebuild with new documents
+                    # CRITICAL FIX #1: Delete FAISS/BM25 index files on disk
+                    rag_index_dir = Path(".rag_index")
+                    if rag_index_dir.exists():
+                        shutil.rmtree(rag_index_dir)
+                        print(f"🗑️  Deleted .rag_index directory")
+                    
+                    # CRITICAL FIX #2: Clear in-memory RAG tool cache
+                    HrBot.clear_rag_cache()
+                    
+                    # CRITICAL FIX #3: Clear Streamlit resource cache (bot instance)
+                    load_bot.clear()
+                    print(f"🗑️  Cleared Streamlit resource cache")
+                    
+                    # Clear session state bot instance
                     if 'bot_instance' in st.session_state:
                         del st.session_state['bot_instance']
                     
-                    st.session_state["s3_refresh_msg"] = f"✅ Refreshed {len(document_paths)} HR documents from S3!"
+                    st.session_state["s3_refresh_msg"] = f"✅ Refreshed {len(document_paths)} HR documents from S3 and rebuilt RAG indexes!"
                     _rerun()
                 except Exception as e:
                     st.session_state["s3_refresh_msg"] = f"❌ Error refreshing S3 documents: {e}"
@@ -1475,10 +1561,11 @@ def main() -> None:
     # Chat input - DON'T render immediately, just add to history
     if prompt := st.chat_input(DEFAULT_PLACEHOLDER):
         history_context = build_history_context(st.session_state["history"], prompt)
+        augmented_question = build_augmented_question(st.session_state["history"], prompt)
         # Add to history (will be rendered on next rerun)
         st.session_state["history"].append({"role": "user", "content": prompt})
         # Start processing
-        future = executor.submit(query_bot, bot, prompt, history_context)
+        future = executor.submit(query_bot, bot, prompt, history_context, augmented_question)
         st.session_state["pending_response"] = {"future": future, "start_time": time.time()}
         _rerun()
 

@@ -38,6 +38,13 @@ if not os.getenv("CHAINLIT_AUTH_SECRET"):
         "Run `chainlit create-secret` and set CHAINLIT_AUTH_SECRET before production deploys."
     )
 
+# Validate OAuth configuration to prevent confusing error messages
+if not os.getenv("OAUTH_GOOGLE_CLIENT_ID") or not os.getenv("OAUTH_GOOGLE_CLIENT_SECRET"):
+    logger.warning(
+        "OAuth credentials (OAUTH_GOOGLE_CLIENT_ID, OAUTH_GOOGLE_CLIENT_SECRET) are not configured. "
+        "Users will see authentication errors. Please configure OAuth in .env file."
+    )
+
 SUPPORT_CONTACT_EMAIL = os.getenv("SUPPORT_CONTACT_EMAIL", "support@company.com")
 DEFAULT_PLACEHOLDER = "Ask me anything about HR policies, benefits, or procedures..."
 

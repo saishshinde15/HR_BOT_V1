@@ -403,6 +403,22 @@ async def header_auth(headers: Headers) -> Optional[cl.User]:
 # ---------------------------------------------------------------------------
 
 
+@cl.on_app_startup
+async def startup() -> None:
+    """Log application startup and configuration status."""
+    oauth_configured = bool(os.getenv("OAUTH_GOOGLE_CLIENT_ID") and os.getenv("OAUTH_GOOGLE_CLIENT_SECRET"))
+    logger.info(
+        "Inara HR Assistant starting up. OAuth configured: %s, Dev login enabled: %s",
+        oauth_configured,
+        _env_flag("ALLOW_DEV_LOGIN")
+    )
+    if not oauth_configured:
+        logger.error(
+            "WARNING: OAuth is not configured! Users will encounter authentication errors. "
+            "Please set OAUTH_GOOGLE_CLIENT_ID and OAUTH_GOOGLE_CLIENT_SECRET in your .env file."
+        )
+
+
 @cl.on_app_shutdown
 async def shutdown() -> None:
     EXECUTOR.shutdown(wait=False, cancel_futures=True)
